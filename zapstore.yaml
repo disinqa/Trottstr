@@ -1,0 +1,33 @@
+name: Trottstr
+summary: Decentralized travel log for Android. Track stays per jurisdiction for tax, visa, and citizenship rules. Powered by Nostr.
+description: |
+  **Trottstr: The Private, Encrypted Travel Log for Globetrotters — Powered by Nostr**
+
+  Trottstr helps you track your days in each country or jurisdiction to simplify compliance with tax residency, visa limits, and citizenship eligibility.  
+  Built with **Nostr**, encrypted for privacy, and designed to work offline-first—Trottstr puts you in control of your data and your journey.
+
+  **Core Features:**
+  - 🗺️ **Automatic Jurisdiction Logging:** Keep accurate counts of days spent in each country.
+  - 🔐 **End-to-End Encrypted Storage:** Your travel history is encrypted on-device—only you can access it.
+  - 🌍 **Visual Timeline & Map View:** See your movements clearly across time and geography.
+  - 📤 **Exportable as CSV:** For visa applications, tax filings, or legal records.
+  - 📡 **Decentralized Sync via Nostr:** Relay-friendly and serverless—share data between devices without handing it over to Big Tech.
+  - 🧱 **Powered by Purplestack:** Identity-optional. Modular. Respectful of your sovereignty.
+
+  Whether you’re a digital nomad, perpetual traveler, or a stateless citizen—Trottstr keeps your travel log safe, local, and under your full control.
+
+repository: https://github.com/disinqa/Trottstr
+homepage: https://trottstr.app
+images:
+  - assets/zapstore/trottstr-1.png
+  - assets/zapstore/trottstr-2.png
+  - assets/zapstore/trottstr-3.png
+  - assets/zapstore/trottstr-4.png
+icon: assets/pngs/ic_trottstr.png
+changelog: CHANGELOG.md
+tags: nostr travel encrypted tax-residency digital-nomad visa-planning location-tracking privacy offline purplestack csv android freedom-tech decentralization
+license: AGPL-3.0-only
+blossom_servers:
+  - https://cdn.zapstore.dev
+assets:
+  - build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
