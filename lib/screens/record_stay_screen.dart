@@ -47,9 +47,7 @@ class RecordStayScreen extends HookConsumerWidget {
       // Show success message and navigate back
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Country entry recorded successfully!'),
-          ),
+          const SnackBar(content: Text('Country entry recorded successfully!')),
         );
         context.pop();
       }
@@ -155,7 +153,9 @@ class RecordStayScreen extends HookConsumerWidget {
                               ),
                               Icon(
                                 Icons.edit,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ],
                           ),
@@ -249,12 +249,10 @@ class RecordStayScreen extends HookConsumerWidget {
                 },
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12.0),
-                  child: Text(
-                    'Record Entry',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: Text('Record Entry', style: TextStyle(fontSize: 16)),
                 ),
               ),
+              const SizedBox(height: 32),
             ],
           ),
         ),

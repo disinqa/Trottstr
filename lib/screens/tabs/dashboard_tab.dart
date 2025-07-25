@@ -134,7 +134,7 @@ class DashboardTab extends ConsumerWidget {
                         subtitle: 'See your progress',
                         onTap: () {
                           // Navigate to stats tab
-                          DefaultTabController.of(context)?.animateTo(
+                          DefaultTabController.of(context).animateTo(
                             2,
                           ); // Assuming stats is the 3rd tab (index 2)
                         },

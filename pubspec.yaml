@@ -67,6 +67,8 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   intl: ^0.20.2
   flutter_typeahead: ^5.2.0
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
 
 dependency_overrides:
   models:

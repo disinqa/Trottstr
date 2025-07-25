@@ -44,16 +44,8 @@ class CustomCountrySettingsService {
       
       // Handle different return types from safeDecryptData
       String jsonString;
-      if (decryptedData is String) {
-        jsonString = decryptedData;
-      } else if (decryptedData is Map<String, dynamic>) {
-        // If it returns a Map directly, encode it back to JSON string
-        jsonString = json.encode(decryptedData);
-      } else {
-        debugPrint('Unexpected decrypted data type: ${decryptedData.runtimeType}');
-        return [];
-      }
-      
+      jsonString = decryptedData;
+          
       if (jsonString.isEmpty) return [];
 
       // Validate that we have proper JSON, not encrypted data

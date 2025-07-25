@@ -182,7 +182,7 @@ class TrackingTab extends ConsumerWidget {
                           const SizedBox(height: 16),
                           ...sortedHistory
                               .map((entryWithExit) => _buildHistoryItem(context, entryWithExit))
-                              .toList(),
+                              ,
                         ],
                       ),
                     ),

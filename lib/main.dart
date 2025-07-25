@@ -10,6 +10,7 @@ import 'package:toastification/toastification.dart';
 import 'package:trottstr/router.dart';
 import 'package:trottstr/theme.dart';
 import 'package:trottstr/providers/auth_providers.dart';
+import 'package:trottstr/services/notification_monitoring_service.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -116,5 +117,16 @@ final appInitializationProvider = FutureProvider<void>((ref) async {
   } catch (e) {
     // Auto sign-in failure is not critical
     debugPrint('Auto sign-in failed: $e');
+  }
+
+  // Initialize notification monitoring after auth
+  try {
+    final monitoringService = ref.read(notificationMonitoringServiceProvider);
+    await monitoringService.initialize();
+    await monitoringService.scheduleDailyMonitoring();
+    debugPrint('Notification monitoring initialized');
+  } catch (e) {
+    // Notification initialization failure is not critical
+    debugPrint('Notification monitoring initialization failed: $e');
   }
 });

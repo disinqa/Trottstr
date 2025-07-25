@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:trottstr/models/custom_country_settings.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
-import 'package:trottstr/services/custom_country_settings_service.dart';
 
 void main() {
   group('CustomCountrySettings', () {

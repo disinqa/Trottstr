@@ -45,17 +45,7 @@ class FavoriteCountriesService {
 
       // Handle different return types from safeDecryptData
       String jsonString;
-      if (decryptedData is String) {
-        jsonString = decryptedData;
-      } else if (decryptedData is Map<String, dynamic>) {
-        // If it returns a Map directly, encode it back to JSON string
-        jsonString = json.encode(decryptedData);
-      } else {
-        debugPrint(
-          'Unexpected decrypted data type: ${decryptedData.runtimeType}',
-        );
-        return [];
-      }
+      jsonString = decryptedData;
 
       if (jsonString.isEmpty) return [];
 
@@ -73,7 +63,8 @@ class FavoriteCountriesService {
               // Try to extract country code if it's an object
               if (item.containsKey('code') && item['code'] is String) {
                 favoriteCountries.add(item['code']);
-              } else if (item.containsKey('countryCode') && item['countryCode'] is String) {
+              } else if (item.containsKey('countryCode') &&
+                  item['countryCode'] is String) {
                 favoriteCountries.add(item['countryCode']);
               }
               // Skip invalid objects
@@ -123,25 +114,41 @@ class FavoriteCountriesService {
   Future<FavoriteCountryResult> addFavoriteCountry(String countryCode) async {
     try {
       final upperCountryCode = countryCode.toUpperCase();
+
+      // DEBUG: Print stack trace to see who's calling this
+      debugPrint('🔍 DEBUG: addFavoriteCountry called for $upperCountryCode');
+      debugPrint('🔍 DEBUG: Stack trace:');
+      debugPrint(StackTrace.current.toString());
+
       final favorites = await getFavoriteCountries();
 
       // Check if already a favorite
       if (favorites.contains(upperCountryCode)) {
+        debugPrint('🔍 DEBUG: $upperCountryCode is already a favorite');
         return FavoriteCountryResult.alreadyFavorite;
       }
 
       // Check if at max limit
       if (favorites.length >= maxFavoriteCount) {
+        debugPrint(
+          '🔍 DEBUG: Max favorite limit reached (${favorites.length}/$maxFavoriteCount)',
+        );
         return FavoriteCountryResult.maxLimitReached;
       }
 
       // Add the new favorite
+      debugPrint(
+        '🔍 DEBUG: Adding $upperCountryCode to favorites. Current favorites: $favorites',
+      );
       final updatedFavorites = [...favorites, upperCountryCode];
       await _saveFavoriteCountries(updatedFavorites);
+      debugPrint(
+        '🔍 DEBUG: Successfully added $upperCountryCode to favorites. New list: $updatedFavorites',
+      );
 
       return FavoriteCountryResult.success;
     } catch (e) {
-      debugPrint('Error adding favorite country: $e');
+      debugPrint('🔍 DEBUG: Error adding favorite country: $e');
       return FavoriteCountryResult.error;
     }
   }
@@ -176,12 +183,20 @@ class FavoriteCountriesService {
   Future<FavoriteCountryResult> toggleFavoriteCountry(
     String countryCode,
   ) async {
-    final favorites = await getFavoriteCountries();
     final upperCountryCode = countryCode.toUpperCase();
 
+    // DEBUG: Print stack trace to see who's calling this
+    debugPrint('🔍 DEBUG: toggleFavoriteCountry called for $upperCountryCode');
+    debugPrint('🔍 DEBUG: Stack trace:');
+    debugPrint(StackTrace.current.toString());
+
+    final favorites = await getFavoriteCountries();
+
     if (favorites.contains(upperCountryCode)) {
+      debugPrint('🔍 DEBUG: $upperCountryCode is a favorite, removing it');
       return await removeFavoriteCountry(upperCountryCode);
     } else {
+      debugPrint('🔍 DEBUG: $upperCountryCode is not a favorite, adding it');
       return await addFavoriteCountry(upperCountryCode);
     }
   }

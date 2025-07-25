@@ -7,6 +7,7 @@ import 'package:trottstr/models/tax_residency_rule.dart';
 import 'package:trottstr/models/custom_country_settings.dart';
 import 'package:trottstr/services/encryption_service.dart';
 import 'package:trottstr/services/custom_country_settings_service.dart';
+import 'package:trottstr/services/notification_monitoring_service.dart';
 
 /// Service for tracking country stays and calculating tax residency risks
 class CountryTrackingService {
@@ -61,18 +62,8 @@ class CountryTrackingService {
 
       // Handle different return types from safeDecryptData
       String jsonString;
-      if (decryptedData is String) {
-        jsonString = decryptedData;
-      } else if (decryptedData is Map<String, dynamic>) {
-        // If it returns a Map directly, encode it back to JSON string
-        jsonString = json.encode(decryptedData);
-      } else {
-        debugPrint(
-          'Unexpected decrypted data type: ${decryptedData.runtimeType}',
-        );
-        return [];
-      }
-
+      jsonString = decryptedData;
+    
       if (jsonString.isEmpty) return [];
 
       // Validate that we have proper JSON, not encrypted data
@@ -125,6 +116,14 @@ class CountryTrackingService {
     // Sort entries by date to maintain chronological order
     entries.sort((a, b) => a.entryDate.compareTo(b.entryDate));
     await _saveEntries(entries);
+    
+    // Trigger notification monitoring check
+    try {
+      final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+      await monitoringService.onCountryEntry(entry.countryCode);
+    } catch (e) {
+      debugPrint('Error triggering notification monitoring: $e');
+    }
   }
 
   /// Get all country entries with calculated exit information
@@ -173,6 +172,14 @@ class CountryTrackingService {
     if (entryIndex != -1) {
       entries[entryIndex] = updatedEntry;
       await _saveEntries(entries);
+      
+      // Trigger notification monitoring for country exit
+      try {
+        final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+        await monitoringService.onCountryExit(currentEntry.countryCode);
+      } catch (e) {
+        debugPrint('Error triggering notification monitoring: $e');
+      }
     }
   }
 
@@ -231,6 +238,14 @@ class CountryTrackingService {
     entries.sort((a, b) => a.entryDate.compareTo(b.entryDate));
 
     await _saveEntries(entries);
+    
+    // Trigger notification monitoring check for new entry
+    try {
+      final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+      await monitoringService.onCountryEntry(upperCountryCode);
+    } catch (e) {
+      debugPrint('Error triggering notification monitoring: $e');
+    }
   }
 
   /// Get planned stays
@@ -265,18 +280,8 @@ class CountryTrackingService {
 
       // Handle different return types from safeDecryptData
       String jsonString;
-      if (decryptedData is String) {
-        jsonString = decryptedData;
-      } else if (decryptedData is Map<String, dynamic>) {
-        // If it returns a Map directly, encode it back to JSON string
-        jsonString = json.encode(decryptedData);
-      } else {
-        debugPrint(
-          'Unexpected decrypted data type: ${decryptedData.runtimeType}',
-        );
-        return [];
-      }
-
+      jsonString = decryptedData;
+    
       if (jsonString.isEmpty) return [];
 
       try {
@@ -509,18 +514,13 @@ class CountryTrackingService {
       // Handle different return types from safeDecryptData
       String? decryptedLocation;
       try {
-        if (decryptedData is String) {
-          decryptedLocation = decryptedData;
-        } else {
-          // For any other type, try to convert to string
-          decryptedLocation = decryptedData?.toString();
-        }
-      } catch (e) {
+        decryptedLocation = decryptedData;
+            } catch (e) {
         debugPrint('Error processing decrypted current location data: $e');
         return null;
       }
 
-      return decryptedLocation?.isNotEmpty == true ? decryptedLocation : null;
+      return decryptedLocation.isNotEmpty == true ? decryptedLocation : null;
     } catch (e) {
       return null;
     }
@@ -554,6 +554,14 @@ class CountryTrackingService {
 
     // Clear the current location (exit means absence of being in any country)
     await _saveCurrentLocation(null);
+    
+    // Trigger notification monitoring for country exit
+    try {
+      final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+      await monitoringService.onCountryExit(currentLocation);
+    } catch (e) {
+      debugPrint('Error triggering notification monitoring: $e');
+    }
   }
 }
 

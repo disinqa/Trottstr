@@ -7,7 +7,6 @@ import 'package:trottstr/providers/country_tracking_providers.dart';
 import 'package:trottstr/services/favorite_countries_service.dart';
 import 'package:trottstr/utils/country_flags.dart';
 import 'package:trottstr/widgets/edit_country_time_limit_dialog.dart';
-import 'package:trottstr/providers/country_tracking_providers.dart';
 
 /// Base class for search suggestions
 abstract class SearchSuggestion {
@@ -90,119 +89,127 @@ class CountrySelector extends HookConsumerWidget {
       return null;
     }, [selectedCountryCode]);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Country', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Country', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
 
-            // Recent countries section
-            favoriteCountriesAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (favoriteCodes) {
-                if (favoriteCodes.isEmpty) return const SizedBox.shrink();
+              // Recent countries section
+              favoriteCountriesAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (favoriteCodes) {
+                  if (favoriteCodes.isEmpty) return const SizedBox.shrink();
 
-                final favoriteCountries = favoriteCodes
-                    .map(
-                      (code) => allCountries.firstWhere(
-                        (country) => country.code == code,
-                        orElse: () => CountryInfo(
-                          code: code,
-                          name: code,
-                          flag: CountryFlags.getFlagOptimized(code),
+                  final favoriteCountries = favoriteCodes
+                      .map(
+                        (code) => allCountries.firstWhere(
+                          (country) => country.code == code,
+                          orElse: () => CountryInfo(
+                            code: code,
+                            name: code,
+                            flag: CountryFlags.getFlagOptimized(code),
+                          ),
+                        ),
+                      )
+                      .toList();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Favorites',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    )
-                    .toList();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Favorites',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: favoriteCountries
+                            .map(
+                              (country) => _buildFavoriteCountryChip(
+                                context,
+                                country,
+                                controller,
+                                favoriteService,
+                                ref,
+                              ),
+                            )
+                            .toList(),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: favoriteCountries
-                          .map(
-                            (country) => _buildFavoriteCountryChip(
-                              context,
-                              country,
-                              controller,
-                              favoriteService,
-                              ref,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                );
-              },
-            ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                },
+              ),
 
-            // Search field
-            TypeAheadField<SearchSuggestion>(
-              controller: controller,
-              suggestionsCallback: (pattern) {
-                final favoriteCodes =
-                    favoriteCountriesAsync.asData?.value ?? <String>[];
-                return _buildSuggestions(pattern, allCountries, favoriteCodes);
-              },
-              itemBuilder: (context, suggestion) {
-                return _buildSuggestionItem(context, suggestion);
-              },
-              onSelected: (suggestion) {
-                if (suggestion is CountryInfo) {
-                  controller.text = suggestion.toString();
-                  onCountrySelected(suggestion.code, suggestion.name);
-                  // Unfocus to close the dropdown immediately
-                  FocusScope.of(context).unfocus();
-                }
-              },
-              hideOnEmpty: false,
-              hideOnLoading: false,
-              hideOnError: false,
-              itemSeparatorBuilder: (context, index) => const SizedBox.shrink(),
-              retainOnLoading: true,
-              showOnFocus: true,
-              hideOnUnfocus: true,
-              builder: (context, controller, focusNode) {
-                return TextFormField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  decoration: InputDecoration(
-                    labelText: hintText ?? 'Search countries...',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: controller.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              controller.clear();
-                            },
-                          )
-                        : null,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please select a country';
-                    }
-                    return null;
-                  },
-                );
-              },
-            ),
-          ],
+              // Search field
+              TypeAheadField<SearchSuggestion>(
+                controller: controller,
+                suggestionsCallback: (pattern) {
+                  final favoriteCodes =
+                      favoriteCountriesAsync.asData?.value ?? <String>[];
+                  return _buildSuggestions(
+                    pattern,
+                    allCountries,
+                    favoriteCodes,
+                  );
+                },
+                itemBuilder: (context, suggestion) {
+                  return _buildSuggestionItem(context, suggestion, ref);
+                },
+                onSelected: (suggestion) {
+                  if (suggestion is CountryInfo) {
+                    controller.text = suggestion.toString();
+                    onCountrySelected(suggestion.code, suggestion.name);
+                    // Unfocus to close the dropdown immediately
+                    FocusScope.of(context).unfocus();
+                  }
+                },
+                hideOnEmpty: false,
+                hideOnLoading: false,
+                hideOnError: false,
+                itemSeparatorBuilder: (context, index) =>
+                    const SizedBox.shrink(),
+                retainOnLoading: true,
+                showOnFocus: true,
+                hideOnUnfocus: true,
+                builder: (context, controller, focusNode) {
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: hintText ?? 'Search countries...',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                controller.clear();
+                              },
+                            )
+                          : null,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select a country';
+                      }
+                      return null;
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -367,6 +374,7 @@ class CountrySelector extends HookConsumerWidget {
   Widget _buildSuggestionItem(
     BuildContext context,
     SearchSuggestion suggestion,
+    WidgetRef ref,
   ) {
     bool isLoading = false;
 
@@ -399,88 +407,148 @@ class CountrySelector extends HookConsumerWidget {
 
                 return StatefulBuilder(
                   builder: (context, setState) {
-                    return ListTile(
-                      leading: Text(
-                        country.flag,
-                        style: const TextStyle(fontSize: 24),
-                      ),
-                      title: Text(country.name),
-                      subtitle: Text(country.code),
-                      trailing: IconButton(
-                        icon: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          switchInCurve: Curves.easeIn,
-                          switchOutCurve: Curves.easeOut,
-                          child: isLoading
-                              ? const SizedBox(
-                                  key: ValueKey('loading'),
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.grey,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  key: ValueKey(
-                                    isFavorite ? 'favorite' : 'not_favorite',
-                                  ),
-                                  isFavorite
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: isFavorite ? Colors.red : Colors.grey,
-                                  size: 20,
+                    return Row(
+                      children: [
+                        // Country selection area - this will be handled by TypeAheadField onSelected
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  country.flag,
+                                  style: const TextStyle(fontSize: 24),
                                 ),
-                        ),
-                        onPressed: isLoading
-                            ? null
-                            : () async {
-                                setState(() {
-                                  isLoading = true;
-                                });
-
-                                try {
-                                  final result = await favoriteService
-                                      .toggleFavoriteCountry(country.code);
-                                  if (result.isSuccess) {
-                                    // Refresh the favorites providers
-                                    ref.invalidate(favoriteCountriesProvider);
-                                    ref.invalidate(
-                                      favoriteCountriesCountProvider,
-                                    );
-                                    ref.invalidate(canAddMoreFavoritesProvider);
-                                  } else {
-                                    // Show error message
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(content: Text(result.message)),
-                                      );
-                                    }
-                                  }
-                                } catch (e) {
-                                  // Handle any unexpected errors
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Error updating favorite: $e',
-                                        ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        country.name,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge,
                                       ),
-                                    );
-                                  }
-                                } finally {
-                                  if (context.mounted) {
+                                      Text(
+                                        country.code,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Favorite button - prevents event propagation
+                        AbsorbPointer(
+                          absorbing: false,
+                          child: GestureDetector(
+                            onTap: isLoading
+                                ? null
+                                : () async {
+                                    // This should prevent the TypeAheadField onSelected from firing
                                     setState(() {
-                                      isLoading = false;
+                                      isLoading = true;
                                     });
-                                  }
-                                }
-                              },
-                      ),
+
+                                    try {
+                                      final result = await favoriteService
+                                          .toggleFavoriteCountry(country.code);
+                                      if (result.isSuccess) {
+                                        ref.invalidate(
+                                          favoriteCountriesProvider,
+                                        );
+                                        ref.invalidate(
+                                          favoriteCountriesCountProvider,
+                                        );
+                                        ref.invalidate(
+                                          canAddMoreFavoritesProvider,
+                                        );
+                                      } else {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(result.message),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Error updating favorite: $e',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } finally {
+                                      if (context.mounted) {
+                                        setState(() {
+                                          isLoading = false;
+                                        });
+                                      }
+                                    }
+                                  },
+                            child: Container(
+                              width: 56,
+                              height: 56,
+                              margin: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.outline,
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(28),
+                                color: isFavorite
+                                    ? Colors.red.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                              ),
+                              child: Center(
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.grey,
+                                              ),
+                                        ),
+                                      )
+                                    : Icon(
+                                        isFavorite
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: isFavorite
+                                            ? Colors.red
+                                            : Colors.grey,
+                                        size: 22,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
                 );
@@ -651,8 +719,12 @@ class CountryInfoCard extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rule =
         this.rule ?? DefaultTaxResidencyRules.getRuleForCountry(countryCode);
-    final customSettingsAsync = ref.watch(customSettingsForCountryProvider(countryCode));
-    final effectiveTimeLimitAsync = ref.watch(effectiveTimeLimitProvider(countryCode));
+    final customSettingsAsync = ref.watch(
+      customSettingsForCountryProvider(countryCode),
+    );
+    final effectiveTimeLimitAsync = ref.watch(
+      effectiveTimeLimitProvider(countryCode),
+    );
 
     if (rule == null) {
       return Card(
@@ -742,7 +814,7 @@ class CountryInfoCard extends HookConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Time limit row with custom/default indicator
             effectiveTimeLimitAsync.when(
               loading: () => Row(
@@ -839,10 +911,13 @@ class CountryInfoCard extends HookConsumerWidget {
                             const SizedBox(width: 8),
                             Text(
                               '$effectiveLimit days',
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -852,29 +927,39 @@ class CountryInfoCard extends HookConsumerWidget {
                             if (isCustom) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.primary,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   'CUSTOM',
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onPrimary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                             ],
                           ],
                         ),
-                        if (isCustom && effectiveLimit != rule.daysThreshold) ...[
+                        if (isCustom &&
+                            effectiveLimit != rule.daysThreshold) ...[
                           const SizedBox(height: 4),
                           Text(
                             'Default: ${rule.daysThreshold} days',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         ],
                       ],
@@ -883,66 +968,82 @@ class CountryInfoCard extends HookConsumerWidget {
                 );
               },
             ),
-            
+
             const SizedBox(height: 8),
             Text(
               rule.description,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            
+
             // Show custom notes if available
             customSettingsAsync.whenOrNull(
-              data: (customSettings) {
-                if (customSettings?.notes != null && customSettings!.notes!.isNotEmpty) {
-                  return Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.note,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary,
+                  data: (customSettings) {
+                    if (customSettings?.notes != null &&
+                        customSettings!.notes!.isNotEmpty) {
+                      return Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Custom Notes:',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.note,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Custom Notes:',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        customSettings.notes!,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onPrimaryContainer,
+                                            ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    customSettings.notes!,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                }
-                return null;
-              },
-            ) ?? const SizedBox.shrink(),
-            
+                          ),
+                        ],
+                      );
+                    }
+                    return null;
+                  },
+                ) ??
+                const SizedBox.shrink(),
+
             if (rule.additionalNotes != null) ...[
               const SizedBox(height: 8),
               Container(
