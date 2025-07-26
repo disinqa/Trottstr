@@ -108,6 +108,7 @@ class DashboardTab extends ConsumerWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
+                childAspectRatio: 1.2,
                 children: [
                   _buildActionCard(
                     context,
@@ -362,8 +363,9 @@ class DashboardTab extends ConsumerWidget {
                     Column(
                       children: stats.countryBreakdown
                           .map(
-                            (summary) =>
-                                buildCountryRiskCard(context, summary.risk!),
+                            (summary) => summary.risk != null
+                                ? buildCountryRiskCard(context, summary.risk!)
+                                : const SizedBox.shrink(),
                           )
                           .toList(),
                     ),

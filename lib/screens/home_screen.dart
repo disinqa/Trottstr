@@ -28,7 +28,7 @@ class HomeScreen extends HookConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rrottstr'),
+        title: const Text('Trottstr'),
         actions: [
           // Profile avatar in top right
           Padding(

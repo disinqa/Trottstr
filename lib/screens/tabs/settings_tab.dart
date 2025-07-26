@@ -3,7 +3,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:trottstr/widgets/data_management_section.dart';
-import 'package:trottstr/widgets/relay_server_section.dart';
+import 'package:trottstr/widgets/multi_relay_settings_section.dart';
+import 'package:trottstr/widgets/country_tax_limits_section.dart';
+import 'package:trottstr/widgets/theme_preview_card.dart';
+import 'package:trottstr/providers/theme_provider.dart';
 
 /// Comprehensive settings screen with enhanced functionality
 class SettingsTab extends HookConsumerWidget {
@@ -57,19 +60,18 @@ class SettingsTab extends HookConsumerWidget {
               context,
               title: 'Connection',
               icon: Icons.network_check,
-              children: [RelayServerSection()],
+              children: [MultiRelaySettingsSection()],
             ),
 
             const SizedBox(height: 16),
 
-            // Data Management Section
-            _buildSectionCard(
-              context,
-              title: 'Data Management',
-              icon: Icons.storage,
-              children: [DataManagementSection()],
-            ),
-
+            // // Data Management Section
+            // _buildSectionCard(
+            //   context,
+            //   title: 'Data Management',
+            //   icon: Icons.storage,
+            //   children: [DataManagementSection()],
+            // ),
             const SizedBox(height: 16),
 
             // Travel Preferences Section
@@ -77,17 +79,7 @@ class SettingsTab extends HookConsumerWidget {
               context,
               title: 'Travel Preferences',
               icon: Icons.travel_explore,
-              children: [
-                _buildSettingsTile(
-                  context,
-                  title: 'Default Country',
-                  subtitle: 'Set your primary country of residence',
-                  icon: Icons.home,
-                  onTap: () {
-                    _showDefaultCountrySelector(context, ref);
-                  },
-                ),
-              ],
+              children: [CountryTaxLimitsSection()],
             ),
 
             const SizedBox(height: 16),
@@ -98,15 +90,7 @@ class SettingsTab extends HookConsumerWidget {
               title: 'Application',
               icon: Icons.settings,
               children: [
-                _buildSettingsTile(
-                  context,
-                  title: 'Theme',
-                  subtitle: 'Choose your preferred theme',
-                  icon: Icons.palette,
-                  onTap: () {
-                    _showThemeSelector(context);
-                  },
-                ),
+                _buildThemeTile(context, ref),
 
                 _buildSettingsTile(
                   context,
@@ -199,6 +183,25 @@ class SettingsTab extends HookConsumerWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildThemeTile(BuildContext context, WidgetRef ref) {
+    final currentTheme = ref.watch(themeProvider);
+
+    return _buildSettingsTile(
+      context,
+      title: 'Theme',
+      subtitle: 'Current: ${currentTheme.displayName}',
+      icon: currentTheme.icon,
+      onTap: () {
+        _showThemeSelector(context, ref);
+      },
+      trailing: Icon(
+        currentTheme.icon,
+        color: Theme.of(context).colorScheme.primary,
+        size: 20,
+      ),
     );
   }
 
@@ -392,49 +395,82 @@ class SettingsTab extends HookConsumerWidget {
     );
   }
 
-  void _showThemeSelector(BuildContext context) {
+  void _showThemeSelector(BuildContext context, WidgetRef ref) {
+    final currentTheme = ref.read(themeProvider);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Choose Theme'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('System Default'),
-              value: 'system',
-              groupValue: 'system',
-              onChanged: (value) {},
+      builder: (context) => Consumer(
+        builder: (context, dialogRef, child) {
+          final selectedTheme = dialogRef.watch(themeProvider);
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  selectedTheme.icon,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                const Text('Choose Theme'),
+              ],
             ),
-            RadioListTile<String>(
-              title: const Text('Light'),
-              value: 'light',
-              groupValue: 'system',
-              onChanged: (value) {},
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: AppThemeMode.values.map((themeMode) {
+                return RadioListTile<AppThemeMode>(
+                  title: Row(
+                    children: [
+                      Icon(
+                        themeMode.icon,
+                        size: 20,
+                        color: selectedTheme == themeMode
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(themeMode.displayName),
+                    ],
+                  ),
+                  value: themeMode,
+                  groupValue: selectedTheme,
+                  onChanged: (AppThemeMode? value) {
+                    if (value != null) {
+                      dialogRef
+                          .read(themeProvider.notifier)
+                          .setThemeMode(value);
+                    }
+                  },
+                );
+              }).toList(),
             ),
-            RadioListTile<String>(
-              title: const Text('Dark'),
-              value: 'dark',
-              groupValue: 'system',
-              onChanged: (value) {},
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Theme updated!')));
-            },
-            child: const Text('Apply'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // Restore original theme if cancelled
+                  ref.read(themeProvider.notifier).setThemeMode(currentTheme);
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Theme changed to ${selectedTheme.displayName}',
+                      ),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                    ),
+                  );
+                },
+                child: const Text('Apply'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

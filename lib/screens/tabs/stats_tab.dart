@@ -254,7 +254,9 @@ class StatsTab extends ConsumerWidget {
               return Column(
                 children: stats.countryBreakdown
                     .map(
-                      (summary) => buildCountryRiskCard(context, summary.risk!),
+                      (summary) => summary.risk != null
+                          ? buildCountryRiskCard(context, summary.risk!)
+                          : const SizedBox.shrink(),
                     )
                     .toList(),
               );

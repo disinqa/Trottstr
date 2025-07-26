@@ -10,6 +10,7 @@ import 'package:toastification/toastification.dart';
 import 'package:trottstr/router.dart';
 import 'package:trottstr/theme.dart';
 import 'package:trottstr/providers/auth_providers.dart';
+import 'package:trottstr/providers/theme_provider.dart';
 import 'package:trottstr/services/notification_monitoring_service.dart';
 
 void main() {
@@ -39,18 +40,24 @@ class PurplestackApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final title = 'Trottstr';
-    final theme = ref.watch(themeProvider);
+    final lightTheme = ref.watch(lightThemeProvider);
+    final darkTheme = ref.watch(darkThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return switch (ref.watch(appInitializationProvider)) {
       AsyncLoading() => MaterialApp(
         title: title,
-        theme: theme,
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        themeMode: themeMode,
         home: Scaffold(body: Center(child: CircularProgressIndicator())),
         debugShowCheckedModeBanner: false,
       ),
       AsyncError(:final error) => MaterialApp(
         title: title,
-        theme: theme,
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        themeMode: themeMode,
         home: Scaffold(
           body: Center(
             child: Column(
@@ -77,7 +84,9 @@ class PurplestackApp extends ConsumerWidget {
       _ => ToastificationWrapper(
         child: MaterialApp.router(
           title: title,
-          theme: theme,
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: themeMode,
           routerConfig: ref.watch(routerProvider),
           debugShowCheckedModeBanner: false,
           builder: (_, child) => child!,

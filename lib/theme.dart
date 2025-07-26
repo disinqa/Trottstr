@@ -3,11 +3,17 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 final brightnessProvider = StateProvider<Brightness>((ref) => Brightness.dark);
 
-// Theme provider that switches between light and dark
+// Theme provider that switches between light and dark (deprecated - use lightThemeProvider/darkThemeProvider)
 final themeProvider = Provider<ThemeData>((ref) {
   final brightness = ref.watch(brightnessProvider);
   return brightness == Brightness.light ? lightTheme : darkTheme;
 });
+
+// Light theme provider
+final lightThemeProvider = Provider<ThemeData>((ref) => lightTheme);
+
+// Dark theme provider
+final darkThemeProvider = Provider<ThemeData>((ref) => darkTheme);
 
 // Helper function to scale text theme proportionally
 TextTheme _scaleTextTheme(TextTheme baseTextTheme, double scaleFactor) {
