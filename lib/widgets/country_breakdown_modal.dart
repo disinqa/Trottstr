@@ -472,7 +472,7 @@ class CountryBreakdownModal extends ConsumerWidget {
         const SizedBox(height: 16),
 
         FutureBuilder<List<CountryEntry>>(
-          future: trackingService.getCurrentYearEntries(),
+          future: trackingService.getAllEntries(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());

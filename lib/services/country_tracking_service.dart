@@ -21,7 +21,7 @@ class CountryTrackingService {
 
   /// Get all country entries for the current year
   Future<List<CountryEntry>> getCurrentYearEntries() async {
-    final entries = await _getAllEntries();
+    final entries = await getAllEntries();
     final currentYear = DateTime.now().year;
 
     return entries
@@ -31,7 +31,7 @@ class CountryTrackingService {
   }
 
   /// Get all country entries (all years)
-  Future<List<CountryEntry>> _getAllEntries() async {
+  Future<List<CountryEntry>> getAllEntries() async {
     try {
       final signer = _ref.read(Signer.activeSignerProvider);
       if (signer == null) return [];
@@ -111,7 +111,7 @@ class CountryTrackingService {
 
   /// Add a new country entry
   Future<void> addCountryEntry(CountryEntry entry) async {
-    final entries = await _getAllEntries();
+    final entries = await getAllEntries();
     entries.add(entry);
     // Sort entries by date to maintain chronological order
     entries.sort((a, b) => a.entryDate.compareTo(b.entryDate));
@@ -128,7 +128,7 @@ class CountryTrackingService {
 
   /// Get all country entries with calculated exit information
   Future<List<CountryEntryWithExit>> getAllEntriesWithExitInfo() async {
-    final entries = await _getAllEntries();
+    final entries = await getAllEntries();
     return entries.map((entry) => CountryEntryWithExit(entry: entry)).toList();
   }
 
@@ -144,44 +144,6 @@ class CountryTrackingService {
         .toList();
   }
 
-  /// Add manual exit functionality
-  Future<void> addManualExit({
-    required DateTime exitDate,
-    String? notes,
-  }) async {
-    final entries = await _getAllEntries();
-
-    // Find entries without an exit date
-    final currentEntries = entries
-        .where((entry) => entry.exitDate == null)
-        .toList();
-
-    if (currentEntries.isEmpty) {
-      throw Exception('No current check-in to exit from');
-    }
-
-    // Get the latest entry without exit date
-    currentEntries.sort((a, b) => b.entryDate.compareTo(a.entryDate));
-    final currentEntry = currentEntries.first;
-
-    // Update the entry with exit date
-    final updatedEntry = currentEntry.addExit(exitDate);
-
-    // Replace the entry in the list
-    final entryIndex = entries.indexWhere((e) => e.id == currentEntry.id);
-    if (entryIndex != -1) {
-      entries[entryIndex] = updatedEntry;
-      await _saveEntries(entries);
-      
-      // Trigger notification monitoring for country exit
-      try {
-        final monitoringService = _ref.read(notificationMonitoringServiceProvider);
-        await monitoringService.onCountryExit(currentEntry.countryCode);
-      } catch (e) {
-        debugPrint('Error triggering notification monitoring: $e');
-      }
-    }
-  }
 
   /// Get complete travel history with all details
   Future<List<CountryEntryWithExit>> getCompleteHistory() async {
@@ -199,19 +161,20 @@ class CountryTrackingService {
     final upperCountryCode = countryCode.toUpperCase();
     final newEntryDate = entryDate ?? DateTime.now();
 
-    final entries = await _getAllEntries();
+    final entries = await getAllEntries();
 
     // Find any existing entries without exit dates (current locations)
     final currentEntries = entries
         .where((entry) => entry.exitDate == null)
         .toList();
 
-    // Auto-exit any current entries by setting their exit date to the day before new entry
+    // Auto-exit any current entries by setting their exit date to the new entry date
     for (final currentEntry in currentEntries) {
+      // Use the new entry date as the exit date for previous country
       final exitDate = DateTime(
         newEntryDate.year,
         newEntryDate.month,
-        newEntryDate.day - 1,
+        newEntryDate.day,
       );
 
       // Update the entry with exit date
@@ -219,6 +182,14 @@ class CountryTrackingService {
       final entryIndex = entries.indexWhere((e) => e.id == currentEntry.id);
       if (entryIndex != -1) {
         entries[entryIndex] = updatedEntry;
+      }
+      
+      // Trigger notification monitoring for country exit
+      try {
+        final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+        await monitoringService.onCountryExit(currentEntry.countryCode);
+      } catch (e) {
+        debugPrint('Error triggering notification monitoring: $e');
       }
     }
 
@@ -335,13 +306,13 @@ class CountryTrackingService {
     await _savePlannedStays(plannedStays);
   }
 
-  /// Calculate days spent in each country for the current year
+  /// Calculate days spent in each country (all historical data plus current year planned stays)
   Future<Map<String, int>> calculateDaysPerCountry() async {
-    final entries = await getCurrentYearEntries();
+    final entries = await getAllEntries();
     final plannedStays = await getPlannedStays();
     final currentYear = DateTime.now().year;
 
-    // Calculate from actual stays
+    // Calculate from actual stays (all historical data)
     final Map<String, int> actualDays = _calculateActualDays(entries);
 
     // Add planned future days
@@ -450,7 +421,7 @@ class CountryTrackingService {
   /// Get current location based on latest entry without exit date
   Future<String?> getCurrentLocation() async {
     try {
-      final entries = await _getAllEntries();
+      final entries = await getAllEntries();
       debugPrint('getCurrentLocation: Found ${entries.length} entries');
 
       // Find the latest entry without an exit date
@@ -526,43 +497,7 @@ class CountryTrackingService {
     }
   }
 
-  /// Save current location to storage
-  Future<void> _saveCurrentLocation(String? countryCode) async {
-    final signer = _ref.read(Signer.activeSignerProvider);
-    if (signer == null) throw Exception('User not signed in');
 
-    // Encrypt the location data before storing
-    final encryptionService = _ref.read(encryptionServiceProvider);
-    final encryptedContent = await encryptionService.safeEncryptData(
-      countryCode ?? '',
-    );
-
-    final customData = PartialCustomData(
-      identifier: _currentLocationKey,
-      content: encryptedContent,
-    );
-    final signedData = await customData.signWith(signer);
-
-    await _ref.storage.save({signedData});
-    await _ref.storage.publish({signedData});
-  }
-
-  /// Exit from current country by clearing the current location
-  Future<void> exitCurrentCountry(DateTime exitDate) async {
-    final currentLocation = await getCurrentLocation();
-    if (currentLocation == null) return;
-
-    // Clear the current location (exit means absence of being in any country)
-    await _saveCurrentLocation(null);
-    
-    // Trigger notification monitoring for country exit
-    try {
-      final monitoringService = _ref.read(notificationMonitoringServiceProvider);
-      await monitoringService.onCountryExit(currentLocation);
-    } catch (e) {
-      debugPrint('Error triggering notification monitoring: $e');
-    }
-  }
 }
 
 /// Represents tax residency risk for a country

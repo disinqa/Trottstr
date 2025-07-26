@@ -21,13 +21,14 @@ homepage: https://trottstr.app
 images:
   - assets/zapstore/trottstr-1.png
   - assets/zapstore/trottstr-2.png
-  - assets/zapstore/trottstr-3.png
+  - assets/zapstore/trottstr.3.png
   - assets/zapstore/trottstr-4.png
-icon: assets/pngs/ic_trottstr.png
+  - assets/zapstore/trottstr.5.png
+icon: assets/images/purplestack.png
 changelog: CHANGELOG.md
 tags: nostr travel encrypted tax-residency digital-nomad visa-planning location-tracking privacy offline purplestack csv android freedom-tech decentralization
 license: AGPL-3.0-only
 blossom_servers:
   - https://cdn.zapstore.dev
 assets:
-  - build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+  - build/app/outputs/flutter-apk/app-release.apk

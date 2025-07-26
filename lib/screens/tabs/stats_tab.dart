@@ -1,9 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:trottstr/screens/tabs/dashboard_tab.dart';
 import 'package:trottstr/services/country_tracking_service.dart';
 import 'package:trottstr/models/country_stay.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
 import 'package:trottstr/providers/country_tracking_providers.dart';
+import 'package:trottstr/providers/optimized_tracking_providers.dart';
 import 'package:trottstr/utils/country_flags.dart';
 
 class StatsTab extends ConsumerWidget {
@@ -28,116 +31,149 @@ class StatsTab extends ConsumerWidget {
           // Year Summary Card using new provider
           Consumer(
             builder: (context, ref, child) {
-              final statsAsync = ref.watch(travelStatsProvider);
+              final stats = ref.watch(optimizedTravelStatsProvider);
+              final trackingState = ref.watch(optimizedTrackingProvider);
+              final isOptimistic = ref.watch(isOptimisticProvider);
 
-              return statsAsync.when(
-                loading: () => const Card(
+              // Show loading only on initial load
+              if (trackingState is TrackingDataLoading) {
+                return const Card(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                ),
-                error: (error, stack) => Card(
+                );
+              }
+
+              if (trackingState is TrackingDataError) {
+                return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Center(child: Text('Error loading stats: $error')),
+                    child: Center(
+                      child: Text(
+                        'Error loading stats: ${trackingState.error}',
+                      ),
+                    ),
                   ),
-                ),
-                data: (stats) => Card(
+                );
+              }
+
+              if (stats == null) {
+                return const Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: Text('No data available')),
+                  ),
+                );
+              }
+
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$currentYear Summary',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          if (isOptimistic) ...[
                             const SizedBox(width: 8),
-                            Text(
-                              '$currentYear Summary',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatItem(
-                                context,
-                                title: 'Countries',
-                                value: '${stats.countriesCount}',
-                                icon: Icons.public,
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildStatItem(
-                                context,
-                                title: 'Total Days',
-                                value: '${stats.totalDays}',
-                                icon: Icons.today,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatItem(
-                                context,
-                                title: 'Total Entries',
-                                value: '${stats.totalEntries}',
-                                icon: Icons.flight_land,
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildStatItem(
-                                context,
-                                title: 'Longest Stay',
-                                value: '${stats.longestStayDays} days',
-                                icon: Icons.schedule,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (stats.currentStatus.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primaryContainer.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  color: Theme.of(context).colorScheme.primary,
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).colorScheme.primary,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  stats.currentStatus,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatItem(
+                              context,
+                              title: 'Countries',
+                              value: '${stats.countriesCount}',
+                              icon: Icons.public,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildStatItem(
+                              context,
+                              title: 'Total Days',
+                              value: '${stats.totalDays}',
+                              icon: Icons.today,
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatItem(
+                              context,
+                              title: 'Total Entries',
+                              value: '${stats.totalEntries}',
+                              icon: Icons.flight_land,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildStatItem(
+                              context,
+                              title: 'Longest Stay',
+                              value: '${stats.longestStayDays} days',
+                              icon: Icons.schedule,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (stats.currentStatus.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                stats.currentStatus,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               );
@@ -155,75 +191,81 @@ class StatsTab extends ConsumerWidget {
 
           Consumer(
             builder: (context, ref, child) {
-              final statsAsync = ref.watch(travelStatsProvider);
+              final stats = ref.watch(optimizedTravelStatsProvider);
+              final trackingState = ref.watch(optimizedTrackingProvider);
 
-              return statsAsync.when(
-                loading: () => const Card(
+              // Show loading only on initial load
+              if (trackingState is TrackingDataLoading) {
+                return const Card(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                ),
-                error: (error, stack) => Card(
+                );
+              }
+
+              if (trackingState is TrackingDataError) {
+                return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Center(child: Text('Error loading data: $error')),
+                    child: Center(
+                      child: Text('Error loading data: ${trackingState.error}'),
+                    ),
                   ),
-                ),
-                data: (stats) {
-                  if (stats.countryBreakdown.isEmpty) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
+                );
+              }
+
+              if (stats == null || stats.countryBreakdown.isEmpty) {
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.pie_chart,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'No data available',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                              ],
+                            Icon(
+                              Icons.pie_chart,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(width: 8),
                             Text(
-                              'Start tracking your travels to see detailed statistics about your time in each country.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
+                              'No data available',
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  }
-
-                  return Column(
-                    children: stats.countryBreakdown.map((summary) {
-                      final percentage = stats.totalDays > 0
-                          ? (summary.days / stats.totalDays * 100)
-                          : 0.0;
-                      return _buildCountryStatsCard(
-                        context,
-                        summary,
-                        percentage,
-                      );
-                    }).toList(),
-                  );
-                },
+                        const SizedBox(height: 8),
+                        Text(
+                          'Start tracking your travels to see detailed statistics about your time in each country.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                children: stats.countryBreakdown
+                    .map(
+                      (summary) => buildCountryRiskCard(context, summary.risk!),
+                    )
+                    .toList(),
               );
+              // return Column(
+              //   children: stats.countryBreakdown.map((summary) {
+              //     final percentage = stats.totalDays > 0
+              //         ? (summary.days / stats.totalDays * 100)
+              //         : 0.0;
+              //     return _buildCountryStatsCard(context, summary, percentage);
+              //   }).toList(),
+              // );
             },
           ),
 
@@ -236,10 +278,13 @@ class StatsTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          FutureBuilder<Map<String, TaxResidencyRisk>>(
-            future: trackingService.calculateTaxResidencyRisks(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+          Consumer(
+            builder: (context, ref, child) {
+              final risks = ref.watch(optimizedTaxResidencyRisksProvider);
+              final trackingState = ref.watch(optimizedTrackingProvider);
+
+              // Show loading only on initial load
+              if (trackingState is TrackingDataLoading) {
                 return const Card(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
@@ -248,8 +293,7 @@ class StatsTab extends ConsumerWidget {
                 );
               }
 
-              final risks = snapshot.data!.values;
-              final alerts = risks
+              final alerts = risks.values
                   .where(
                     (risk) =>
                         risk.riskLevel == RiskLevel.critical ||
@@ -309,56 +353,66 @@ class StatsTab extends ConsumerWidget {
 
           Consumer(
             builder: (context, ref, child) {
-              final historyAsync = ref.watch(completeHistoryProvider);
+              final history = ref.watch(optimizedCompleteHistoryProvider);
+              final trackingState = ref.watch(optimizedTrackingProvider);
 
-              return historyAsync.when(
-                loading: () => const Card(
+              // Show loading only on initial load
+              if (trackingState is TrackingDataLoading) {
+                return const Card(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                ),
-                error: (error, stack) => Card(
+                );
+              }
+
+              if (trackingState is TrackingDataError) {
+                return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Center(child: Text('Error loading history: $error')),
-                  ),
-                ),
-                data: (history) => Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recent Activity',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        if (history.isEmpty)
-                          Text(
-                            'No travel activity recorded yet.',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          )
-                        else
-                          Column(
-                            children: history
-                                .take(5)
-                                .map(
-                                  (entryWithExit) => _buildCalendarEntry(
-                                    context,
-                                    entryWithExit.entry,
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                      ],
+                    child: Center(
+                      child: Text(
+                        'Error loading history: ${trackingState.error}',
+                      ),
                     ),
+                  ),
+                );
+              }
+
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recent Activity',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      if (history.isEmpty)
+                        Text(
+                          'No travel activity recorded yet.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        )
+                      else
+                        Column(
+                          children: history
+                              .take(5)
+                              .map(
+                                (entryWithExit) => _buildCalendarEntry(
+                                  context,
+                                  entryWithExit.entry,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                    ],
                   ),
                 ),
               );
@@ -455,32 +509,38 @@ class StatsTab extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  flex: percentage.round().clamp(1, 100),
-                  child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-                if (percentage < 100)
-                  Expanded(
-                    flex: (100 - percentage).round().clamp(1, 100),
-                    child: Container(
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-              ],
+            Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Calculate actual width based on percentage
+                  final totalWidth = constraints.maxWidth;
+                  final filledWidth = (percentage / 100) * totalWidth;
+
+                  // Ensure minimum visible width for very small percentages (2 pixels)
+                  final displayWidth = percentage > 0
+                      ? math.max(2.0, filledWidth)
+                      : 0.0;
+
+                  return Stack(
+                    children: [
+                      if (percentage > 0)
+                        Container(
+                          width: displayWidth,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
             if (summary.risk != null) ...[
               const SizedBox(height: 8),

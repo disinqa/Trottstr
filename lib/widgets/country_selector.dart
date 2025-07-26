@@ -47,11 +47,13 @@ class CountrySelector extends HookConsumerWidget {
   final String? selectedCountryCode;
   final void Function(String countryCode, String countryName) onCountrySelected;
   final String? hintText;
+  final FocusNode? focusNode;
 
   const CountrySelector({
     super.key,
     this.selectedCountryCode,
     required this.onCountrySelected,
+    this.focusNode,
     this.hintText,
   });
 
@@ -154,6 +156,7 @@ class CountrySelector extends HookConsumerWidget {
               // Search field
               TypeAheadField<SearchSuggestion>(
                 controller: controller,
+                focusNode: focusNode,
                 suggestionsCallback: (pattern) {
                   final favoriteCodes =
                       favoriteCountriesAsync.asData?.value ?? <String>[];

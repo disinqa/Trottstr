@@ -47,19 +47,6 @@ class SettingsTab extends HookConsumerWidget {
                   icon: Icons.account_circle,
                   onTap: () => context.push('/profile'),
                 ),
-                _buildSettingsTile(
-                  context,
-                  title: 'Privacy & Security',
-                  subtitle: 'Control your data and privacy settings',
-                  icon: Icons.security,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Privacy settings coming soon!'),
-                      ),
-                    );
-                  },
-                ),
               ],
             ),
 
@@ -100,57 +87,6 @@ class SettingsTab extends HookConsumerWidget {
                     _showDefaultCountrySelector(context, ref);
                   },
                 ),
-                _buildSettingsTile(
-                  context,
-                  title: 'Notification Preferences',
-                  subtitle: 'Configure when to receive alerts',
-                  icon: Icons.notifications,
-                  onTap: () {
-                    _showNotificationSettings(context);
-                  },
-                ),
-                _buildSettingsTile(
-                  context,
-                  title: 'Tax Year Settings',
-                  subtitle: 'Configure your tax year preferences',
-                  icon: Icons.calendar_today,
-                  onTap: () {
-                    _showTaxYearSettings(context);
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Analytics & Insights Section
-            _buildSectionCard(
-              context,
-              title: 'Analytics & Insights',
-              icon: Icons.analytics,
-              children: [
-                _buildSettingsTile(
-                  context,
-                  title: 'Travel Analytics',
-                  subtitle: 'View detailed travel statistics',
-                  icon: Icons.bar_chart,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Analytics feature coming soon!'),
-                      ),
-                    );
-                  },
-                ),
-                _buildSettingsTile(
-                  context,
-                  title: 'Tax Residency Reports',
-                  subtitle: 'Generate compliance reports',
-                  icon: Icons.assessment,
-                  onTap: () {
-                    _showTaxResidencyReports(context, ref);
-                  },
-                ),
               ],
             ),
 
@@ -171,15 +107,7 @@ class SettingsTab extends HookConsumerWidget {
                     _showThemeSelector(context);
                   },
                 ),
-                _buildSettingsTile(
-                  context,
-                  title: 'Language',
-                  subtitle: 'Select your language',
-                  icon: Icons.language,
-                  onTap: () {
-                    _showLanguageSelector(context);
-                  },
-                ),
+
                 _buildSettingsTile(
                   context,
                   title: 'About',

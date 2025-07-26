@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:trottstr/services/country_tracking_service.dart';
 import 'package:trottstr/models/country_stay.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
-import 'package:trottstr/providers/country_tracking_providers.dart';
+import 'package:trottstr/providers/optimized_tracking_providers.dart';
 import 'package:trottstr/utils/country_flags.dart';
 
 class TrackingTab extends ConsumerWidget {
@@ -28,7 +28,9 @@ class TrackingTab extends ConsumerWidget {
           // Current Location Card
           Consumer(
             builder: (context, ref, child) {
-              final locationAsync = ref.watch(currentLocationProvider);
+              final currentLocation = ref.watch(optimizedCurrentLocationProvider);
+              final trackingState = ref.watch(optimizedTrackingProvider);
+              final isOptimistic = ref.watch(isOptimisticProvider);
 
               return Card(
                 child: Padding(
@@ -47,26 +49,30 @@ class TrackingTab extends ConsumerWidget {
                             'Current Location',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
+                          if (isOptimistic) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 16),
 
-                      locationAsync.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (error, stack) =>
-                            _buildNoLocationDisplay(context),
-                        data: (currentLocation) {
-                          if (currentLocation != null) {
-                            return _buildCurrentLocationDisplay(
-                              context,
-                              currentLocation,
-                            );
-                          } else {
-                            return _buildNoLocationDisplay(context);
-                          }
-                        },
-                      ),
+                      // Show loading only on initial load
+                      if (trackingState is TrackingDataLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (currentLocation != null)
+                        _buildCurrentLocationDisplay(context, currentLocation)
+                      else
+                        _buildNoLocationDisplay(context),
 
                       const SizedBox(height: 16),
 
@@ -99,95 +105,106 @@ class TrackingTab extends ConsumerWidget {
 
           Consumer(
             builder: (context, ref, child) {
-              final historyAsync = ref.watch(completeHistoryProvider);
+              final history = ref.watch(optimizedCompleteHistoryProvider);
+              final trackingState = ref.watch(optimizedTrackingProvider);
+              final isOptimistic = ref.watch(isOptimisticProvider);
 
-              return historyAsync.when(
-                loading: () => const Card(
+              // Show loading only on initial load
+              if (trackingState is TrackingDataLoading) {
+                return const Card(
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                ),
-                error: (error, stack) => Card(
+                );
+              }
+
+              if (trackingState is TrackingDataError) {
+                return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Center(child: Text('Error loading history: $error')),
+                    child: Center(child: Text('Error loading history: ${trackingState.error}')),
                   ),
-                ),
-                data: (history) {
-                  if (history.isEmpty) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
+                );
+              }
+
+              if (history.isEmpty) {
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.history,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'No travel history',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                              ],
+                            Icon(
+                              Icons.history,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(width: 8),
                             Text(
-                              'Your complete travel history will appear here once you start tracking your visits.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
+                              'No travel history',
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  }
-
-                  // Sort history by entry date (most recent first)
-                  final sortedHistory = List<CountryEntryWithExit>.from(history)
-                    ..sort((a, b) => b.entry.entryDate.compareTo(a.entry.entryDate));
-
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.timeline,
-                                color: Theme.of(context).colorScheme.primary,
+                        const SizedBox(height: 8),
+                        Text(
+                          'Your complete travel history will appear here once you start tracking your visits.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Complete History (${history.length} entries)',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // Sort history by entry date (most recent first)
+              final sortedHistory = List<CountryEntryWithExit>.from(history)
+                ..sort((a, b) => b.entry.entryDate.compareTo(a.entry.entryDate));
+
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.timeline,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Complete History (${history.length} entries)',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (isOptimistic) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Theme.of(context).colorScheme.primary,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ...sortedHistory
-                              .map((entryWithExit) => _buildHistoryItem(context, entryWithExit))
-                              ,
+                            ),
+                          ],
                         ],
                       ),
-                    ),
-                  );
-                },
+                      const SizedBox(height: 16),
+                      ...sortedHistory
+                          .map((entryWithExit) => _buildHistoryItem(context, entryWithExit)),
+                    ],
+                  ),
+                ),
               );
             },
           ),

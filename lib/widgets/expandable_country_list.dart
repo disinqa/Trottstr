@@ -6,7 +6,7 @@ import 'package:trottstr/services/country_tracking_service.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
 import 'package:trottstr/widgets/country_breakdown_modal.dart';
 import 'package:trottstr/utils/country_flags.dart';
-import 'package:trottstr/providers/country_tracking_providers.dart';
+import 'package:trottstr/providers/optimized_tracking_providers.dart';
 
 /// Expandable widget showing chronological history of visited countries
 class ExpandableCountryList extends ConsumerStatefulWidget {
@@ -58,59 +58,65 @@ class _ExpandableCountryListState extends ConsumerState<ExpandableCountryList>
   @override
   Widget build(BuildContext context) {
     final trackingService = ref.read(countryTrackingServiceProvider);
-    final entriesAsync = ref.watch(currentYearEntriesProvider);
+    final entries = ref.watch(optimizedCurrentYearEntriesProvider);
+    final trackingState = ref.watch(optimizedTrackingProvider);
+    final isOptimistic = ref.watch(isOptimisticProvider);
 
-    return entriesAsync.when(
-      loading: () => const Card(
+    // Show loading only on initial load
+    if (trackingState is TrackingDataLoading) {
+      return const Card(
         child: Padding(
           padding: EdgeInsets.all(16.0),
           child: Center(child: CircularProgressIndicator()),
         ),
-      ),
-      error: (error, stack) => Card(
+      );
+    }
+
+    if (trackingState is TrackingDataError) {
+      return Card(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Center(child: Text('Error loading data: $error')),
+          child: Center(child: Text('Error loading data: ${trackingState.error}')),
         ),
-      ),
-      data: (entries) {
-        final countryHistory = _buildCountryHistory(entries);
+      );
+    }
 
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              // Header with current country
-              _buildHeader(context, countryHistory),
+    final countryHistory = _buildCountryHistory(entries);
 
-              // Expandable list
-              AnimatedBuilder(
-                animation: _expandAnimation,
-                builder: (context, child) {
-                  return ClipRect(
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      heightFactor: _expandAnimation.value,
-                      child: child,
-                    ),
-                  );
-                },
-                child: _buildExpandableContent(
-                  context,
-                  countryHistory,
-                  trackingService,
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Header with current country and optimistic indicator
+          _buildHeader(context, countryHistory, isOptimistic),
+
+          // Expandable list
+          AnimatedBuilder(
+            animation: _expandAnimation,
+            builder: (context, child) {
+              return ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: _expandAnimation.value,
+                  child: child,
                 ),
-              ),
-            ],
+              );
+            },
+            child: _buildExpandableContent(
+              context,
+              countryHistory,
+              trackingService,
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
   Widget _buildHeader(
     BuildContext context,
     List<CountryVisitInfo> countryHistory,
+    bool isOptimistic,
   ) {
     final currentCountry =
         countryHistory.isNotEmpty && countryHistory.first.isCurrentLocation
@@ -200,11 +206,28 @@ class _ExpandableCountryListState extends ConsumerState<ExpandableCountryList>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Current Location',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Current Location',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (isOptimistic) ...[
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -306,26 +329,25 @@ class _ExpandableCountryListState extends ConsumerState<ExpandableCountryList>
         // Country list
         Consumer(
           builder: (context, ref, child) {
-            final risksAsync = ref.watch(taxResidencyRisksProvider);
+            final risks = ref.watch(optimizedTaxResidencyRisksProvider);
+            final trackingState = ref.watch(optimizedTrackingProvider);
 
-            return risksAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) =>
-                  Center(child: Text('Error loading risks: $error')),
-              data: (risks) {
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: countryHistory.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1, indent: 72),
-                  itemBuilder: (context, index) {
-                    final country = countryHistory[index];
-                    final risk = risks[country.countryCode];
+            // Show loading only on initial load
+            if (trackingState is TrackingDataLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                    return _buildCountryListItem(context, country, risk);
-                  },
-                );
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: countryHistory.length,
+              separatorBuilder: (context, index) =>
+                  const Divider(height: 1, indent: 72),
+              itemBuilder: (context, index) {
+                final country = countryHistory[index];
+                final risk = risks[country.countryCode];
+
+                return _buildCountryListItem(context, country, risk);
               },
             );
           },
