@@ -25,23 +25,25 @@ class RecordStayScreen extends HookConsumerWidget {
     Future<void> saveCountryEntry() async {
       if (!formKey.currentState!.validate()) return;
       if (selectedCountryCode.value == null) return;
-  
+
       try {
         // Use optimized provider for immediate UI updates
-        await ref.read(optimizedTrackingProvider.notifier).recordEntryOptimistic(
-          countryCode: selectedCountryCode.value!,
-          entryDate: selectedDate.value,
-          notes: notesController.text.trim().isNotEmpty
-              ? notesController.text.trim()
-              : null,
-          location: locationController.text.trim().isNotEmpty
-              ? locationController.text.trim()
-              : null,
-          purpose: purposeController.text.trim().isNotEmpty
-              ? purposeController.text.trim()
-              : null,
-        );
-  
+        await ref
+            .read(optimizedTrackingProvider.notifier)
+            .recordEntryOptimistic(
+              countryCode: selectedCountryCode.value!,
+              entryDate: selectedDate.value,
+              notes: notesController.text.trim().isNotEmpty
+                  ? notesController.text.trim()
+                  : null,
+              location: locationController.text.trim().isNotEmpty
+                  ? locationController.text.trim()
+                  : null,
+              purpose: purposeController.text.trim().isNotEmpty
+                  ? purposeController.text.trim()
+                  : null,
+            );
+
         // Show success message and navigate back
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -49,14 +51,6 @@ class RecordStayScreen extends HookConsumerWidget {
               content: const Text('Country entry recorded successfully!'),
               backgroundColor: Theme.of(context).colorScheme.primary,
               behavior: SnackBarBehavior.floating,
-              action: SnackBarAction(
-                label: 'View',
-                textColor: Theme.of(context).colorScheme.onPrimary,
-                onPressed: () {
-                  // Navigate to tracking tab to see the update
-                  context.pop();
-                },
-              ),
             ),
           );
           context.pop();
