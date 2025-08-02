@@ -139,14 +139,14 @@ class KeypairDialog extends StatelessWidget {
         directory = await getApplicationDocumentsDirectory();
       }
 
-      if (directory == null) {
-        throw Exception('Could not access storage directory');
-      }
-
       // Create the file
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'trottstr_keypair_$timestamp.txt';
-      final file = File('${directory.path}/$fileName');
+      final path = directory?.path ?? '';
+      if (path.isEmpty) {
+        throw Exception('Unable to determine download directory');
+      }
+      final file = File('$path/$fileName');
 
       await file.writeAsString(keysContent);
 

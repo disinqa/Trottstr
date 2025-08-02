@@ -131,7 +131,7 @@ class TimeDurationInput extends HookWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Equivalent to ${currentDuration!.totalDays} days',
+                  'Equivalent to ${currentDuration.totalDays} days',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

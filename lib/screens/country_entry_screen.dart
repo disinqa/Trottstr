@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:trottstr/services/country_tracking_service.dart';
 import 'package:trottstr/providers/country_tracking_providers.dart';
-import 'package:trottstr/utils/country_utils.dart';
+import 'package:trottstr/widgets/country_selector.dart';
 import 'package:trottstr/models/country_stay.dart';
 
 /// Screen for recording country entry/exit
@@ -12,7 +12,8 @@ class CountryEntryScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCountry = useState<String?>(null);
+    final selectedCountryCode = useState<String?>(null);
+    final selectedCountryName = useState<String?>(null);
     final entryDate = useState<DateTime>(DateTime.now());
     final exitDate = useState<DateTime?>(null);
     final location = useState<String>('');
@@ -72,52 +73,13 @@ class CountryEntryScreen extends HookConsumerWidget {
             const SizedBox(height: 16),
 
             // Country Selection
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Country',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: selectedCountry.value,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Select a country',
-                        prefixIcon: Icon(Icons.public),
-                      ),
-                      items: CountryUtils.getAllCountries()
-                          .map((country) => DropdownMenuItem(
-                                value: country.code,
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      country.flag,
-                                      style: const TextStyle(fontSize: 20),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(country.name),
-                                  ],
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        selectedCountry.value = value;
-                      },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please select a country';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
+            CountrySelector(
+              selectedCountryCode: selectedCountryCode.value,
+              onCountrySelected: (countryCode, countryName) {
+                selectedCountryCode.value = countryCode;
+                selectedCountryName.value = countryName;
+              },
+              hintText: 'Search for a country...',
             ),
             const SizedBox(height: 16),
 
@@ -133,7 +95,7 @@ class CountryEntryScreen extends HookConsumerWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Entry Date
                     Row(
                       children: [
@@ -171,7 +133,7 @@ class CountryEntryScreen extends HookConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Exit Date (optional)
                     Row(
                       children: [
@@ -182,7 +144,9 @@ class CountryEntryScreen extends HookConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isPlanned.value ? 'End Date' : 'Exit Date (Optional)',
+                                isPlanned.value
+                                    ? 'End Date'
+                                    : 'Exit Date (Optional)',
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                               Text(
@@ -204,7 +168,9 @@ class CountryEntryScreen extends HookConsumerWidget {
                             );
                             exitDate.value = date;
                           },
-                          child: Text(exitDate.value != null ? 'Change' : 'Set'),
+                          child: Text(
+                            exitDate.value != null ? 'Change' : 'Set',
+                          ),
                         ),
                       ],
                     ),
@@ -235,7 +201,7 @@ class CountryEntryScreen extends HookConsumerWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Location
                     TextFormField(
                       controller: locationController,
@@ -248,7 +214,7 @@ class CountryEntryScreen extends HookConsumerWidget {
                       onChanged: (value) => location.value = value,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Purpose
                     TextFormField(
                       controller: purposeController,
@@ -261,7 +227,7 @@ class CountryEntryScreen extends HookConsumerWidget {
                       onChanged: (value) => purpose.value = value,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Notes
                     TextFormField(
                       controller: notesController,
@@ -281,7 +247,7 @@ class CountryEntryScreen extends HookConsumerWidget {
             const SizedBox(height: 24),
 
             // Duration Preview
-            if (selectedCountry.value != null) ...[
+            if (selectedCountryCode.value != null) ...[
               Card(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 child: Padding(
@@ -318,14 +284,15 @@ class CountryEntryScreen extends HookConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: isProcessing.value || selectedCountry.value == null
+                onPressed:
+                    isProcessing.value || selectedCountryCode.value == null
                     ? null
                     : () async {
                         await _submitEntry(
                           context,
                           ref,
                           isProcessing,
-                          selectedCountry.value!,
+                          selectedCountryCode.value!,
                           entryDate.value,
                           exitDate.value,
                           location.value,
@@ -353,7 +320,7 @@ class CountryEntryScreen extends HookConsumerWidget {
   String _calculateDurationText(DateTime entry, DateTime? exit) {
     final endDate = exit ?? DateTime.now();
     final duration = endDate.difference(entry).inDays + 1;
-    
+
     if (exit != null) {
       return 'Duration: $duration days';
     } else {
@@ -379,10 +346,10 @@ class CountryEntryScreen extends HookConsumerWidget {
 
     try {
       final service = ref.read(countryTrackingServiceProvider);
-      
+
       // Generate unique ID
       final id = DateTime.now().millisecondsSinceEpoch.toString();
-      
+
       // Create country entry
       final entry = CountryEntry(
         id: id,
@@ -399,7 +366,7 @@ class CountryEntryScreen extends HookConsumerWidget {
         if (exitDate == null) {
           throw Exception('End date is required for planned trips');
         }
-        
+
         final plannedStay = PlannedStay(
           id: id,
           countryCode: countryCode,
@@ -408,7 +375,7 @@ class CountryEntryScreen extends HookConsumerWidget {
           purpose: purpose.isEmpty ? null : purpose,
           notes: notes.isEmpty ? null : notes,
         );
-        
+
         await service.addPlannedStay(plannedStay);
       } else {
         await service.addCountryEntry(entry);
@@ -423,7 +390,9 @@ class CountryEntryScreen extends HookConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isPlanned ? 'Planned trip saved successfully!' : 'Country entry saved successfully!',
+            isPlanned
+                ? 'Planned trip saved successfully!'
+                : 'Country entry saved successfully!',
           ),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
@@ -431,10 +400,9 @@ class CountryEntryScreen extends HookConsumerWidget {
 
       // Go back
       Navigator.of(context).pop();
-
     } catch (e) {
       if (!context.mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving entry: $e'),

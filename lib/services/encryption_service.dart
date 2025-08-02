@@ -1,6 +1,18 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:models/models.dart';
+
+/// Custom exception for encryption/decryption failures that preserves original data
+class EncryptionException implements Exception {
+  final String message;
+  final String originalData;
+
+  const EncryptionException(this.message, this.originalData);
+
+  @override
+  String toString() => 'EncryptionException: $message';
+}
 
 /// Service for encrypting and decrypting sensitive data using NIP-44
 /// This service encrypts data with the user's own public key for self-encryption
@@ -81,7 +93,7 @@ class EncryptionService {
     }
   }
 
-  /// Safely decrypt data with automatic fallback for plaintext data
+  /// Safely decrypt data with robust error handling and retry logic
   Future<String> safeDecryptData(String content) async {
     try {
       if (!canEncrypt()) {
@@ -95,27 +107,76 @@ class EncryptionService {
         return content;
       }
 
-      // Try to decrypt - if it fails, assume it's plaintext
-      final decrypted = await decryptData(content);
+      // Try to decrypt with retry logic
+      final decrypted = await _decryptWithRetry(content, maxRetries: 3);
       
-      // If decryption returns empty string, it failed
+      // Validate decrypted content
       if (decrypted.isEmpty && content.isNotEmpty) {
-        debugPrint('Decryption returned empty, content may be corrupted');
-        return '';
+        debugPrint('Decryption failed after retries - preserving encrypted data for recovery');
+        throw EncryptionException('Decryption failed after multiple attempts', content);
       }
       
-      debugPrint('Successfully decrypted data');
+      // Validate JSON structure if decryption succeeded
+      if (decrypted.isNotEmpty && !_isValidJson(decrypted)) {
+        debugPrint('Decrypted content is not valid JSON - possible corruption');
+        throw EncryptionException('Decrypted content validation failed', content);
+      }
+      
+      debugPrint('Successfully decrypted and validated data');
       return decrypted;
     } catch (e) {
+      if (e is EncryptionException) {
+        // Preserve original encrypted data for potential recovery
+        debugPrint('Encryption error: ${e.message} - Original data preserved');
+        rethrow;
+      }
+      
       debugPrint('Decryption failed: $e');
-      // If content looks like encrypted data (not JSON), return empty instead of corrupted data
+      // If content looks like encrypted data (not JSON), preserve it
       if (!content.startsWith('[') && !content.startsWith('{')) {
-        debugPrint('Content appears encrypted but decryption failed, returning empty');
-        return '';
+        debugPrint('Content appears encrypted but decryption failed - preserving for recovery');
+        throw EncryptionException('Failed to decrypt non-JSON content: $e', content);
       }
       // If it looks like JSON, it might be legacy plaintext data
       debugPrint('Content looks like JSON, assuming legacy plaintext');
       return content;
+    }
+  }
+
+  /// Decrypt with exponential backoff retry logic
+  Future<String> _decryptWithRetry(String content, {int maxRetries = 3}) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final result = await decryptData(content);
+        if (result.isNotEmpty) {
+          return result;
+        }
+        // If empty but no exception, treat as failure
+        if (attempt < maxRetries) {
+          final delay = Duration(milliseconds: 100 * attempt); // Exponential backoff
+          debugPrint('Decryption attempt $attempt failed, retrying in ${delay.inMilliseconds}ms');
+          await Future.delayed(delay);
+        }
+      } catch (e) {
+        debugPrint('Decryption attempt $attempt failed: $e');
+        if (attempt == maxRetries) {
+          rethrow;
+        }
+        final delay = Duration(milliseconds: 100 * attempt);
+        await Future.delayed(delay);
+      }
+    }
+    return '';
+  }
+
+  /// Validate JSON structure
+  bool _isValidJson(String jsonString) {
+    try {
+      if (jsonString.trim().isEmpty) return false;
+      final decoded = json.decode(jsonString);
+      return decoded != null;
+    } catch (e) {
+      return false;
     }
   }
 }

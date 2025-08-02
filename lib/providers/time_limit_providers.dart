@@ -1,8 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:trottstr/models/time_limit_models.dart';
-import 'package:trottstr/models/country_stay.dart';
 import 'package:trottstr/services/time_limit_management_service.dart';
-import 'package:trottstr/services/country_tracking_service.dart';
 import 'package:trottstr/providers/optimized_tracking_providers.dart';
 
 /// Provider for all time limit configurations

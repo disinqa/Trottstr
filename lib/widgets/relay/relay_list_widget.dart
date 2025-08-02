@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:trottstr/models/relay_models.dart';
 import 'package:trottstr/providers/relay_providers.dart';
 import 'package:trottstr/services/relay_management_service.dart';

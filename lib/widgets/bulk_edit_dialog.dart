@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:trottstr/models/time_limit_models.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
 import 'package:trottstr/services/time_limit_management_service.dart';
-import 'package:trottstr/widgets/country_selector.dart';
 import 'package:trottstr/widgets/time_input_widgets.dart';
 import 'package:trottstr/utils/country_flags.dart';
 
@@ -28,7 +27,7 @@ class BulkEditDialog extends HookConsumerWidget {
     final stepController = usePageController();
 
     return Dialog(
-      child: Container(
+      child: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
         child: Column(

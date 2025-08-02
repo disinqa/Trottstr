@@ -85,7 +85,12 @@ class MultiRelaySettingsSection extends HookConsumerWidget {
           ],
 
           // Add relay section
-          _buildAddRelaySection(context, selectedRelays, popularRelays, isEnabled.value),
+          _buildAddRelaySection(
+            context,
+            selectedRelays,
+            popularRelays,
+            isEnabled.value,
+          ),
 
           const Divider(height: 1),
 
@@ -157,15 +162,6 @@ class MultiRelaySettingsSection extends HookConsumerWidget {
               context,
             ).textTheme.bodySmall?.copyWith(color: statusColor),
           ),
-          if (relayCount > 0) ...[
-            const SizedBox(height: 4),
-            Text(
-              _getRedundancyDescription(relayCount),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
         ],
       ),
       trailing: Row(
@@ -215,84 +211,91 @@ class MultiRelaySettingsSection extends HookConsumerWidget {
                   size: 20,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-              const SizedBox(width: 8),
-              Text(
-                'Selected Relays',
+                const SizedBox(width: 8),
+                Text(
+                  'Selected Relays',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          ...selectedRelays.value.asMap().entries.map((entry) {
+            final index = entry.key;
+            final relay = entry.value;
+            return ListTile(
+              dense: true,
+              leading: CircleAvatar(
+                radius: 12,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(
+                relay.relayConfig.url.replaceFirst('wss://', ''),
                 style: Theme.of(
                   context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
               ),
-            ],
-          ),
-        ),
-        ...selectedRelays.value.asMap().entries.map((entry) {
-          final index = entry.key;
-          final relay = entry.value;
-          return ListTile(
-            dense: true,
-            leading: CircleAvatar(
-              radius: 12,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              child: Text(
-                '${index + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+              subtitle: Row(
+                children: [
+                  RelayStatusChip(
+                    status: relay.relayConfig.status,
+                    isCompact: true,
+                  ),
+                  const SizedBox(width: 8),
+                ],
               ),
-            ),
-            title: Text(
-              relay.relayConfig.url.replaceFirst('wss://', ''),
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
-            ),
-            subtitle: Row(
-              children: [
-                RelayStatusChip(
-                  status: relay.relayConfig.status,
-                  isCompact: true,
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-            trailing: isEnabled ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (index > 0)
-                  IconButton(
-                    onPressed: () => _moveRelayUp(selectedRelays, index),
-                    icon: const Icon(Icons.keyboard_arrow_up, size: 20),
-                    tooltip: 'Move up',
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                if (index < selectedRelays.value.length - 1)
-                  IconButton(
-                    onPressed: () => _moveRelayDown(selectedRelays, index),
-                    icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-                    tooltip: 'Move down',
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                IconButton(
-                  onPressed: () => _removeRelay(selectedRelays, index),
-                  icon: const Icon(Icons.remove_circle, size: 20),
-                  tooltip: 'Remove',
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                ),
-              ],
-            ) : null,
-          );
-        }),
+              trailing: isEnabled
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (index > 0)
+                          IconButton(
+                            onPressed: () =>
+                                _moveRelayUp(selectedRelays, index),
+                            icon: const Icon(Icons.keyboard_arrow_up, size: 20),
+                            tooltip: 'Move up',
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                        if (index < selectedRelays.value.length - 1)
+                          IconButton(
+                            onPressed: () =>
+                                _moveRelayDown(selectedRelays, index),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 20,
+                            ),
+                            tooltip: 'Move down',
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                        IconButton(
+                          onPressed: () => _removeRelay(selectedRelays, index),
+                          icon: const Icon(Icons.remove_circle, size: 20),
+                          tooltip: 'Remove',
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                        ),
+                      ],
+                    )
+                  : null,
+            );
+          }),
         ],
       ),
     );
@@ -322,94 +325,97 @@ class MultiRelaySettingsSection extends HookConsumerWidget {
                     size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-              const SizedBox(width: 8),
-              Text(
-                'Add Additional Relay',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Custom URL input
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: customUrlController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Custom Relay URL',
-                    hintText: 'wss://relay.example.com',
-                    prefixIcon: Icon(Icons.link),
-                    isDense: true,
-                  ),
-                  onFieldSubmitted: (url) {
-                    if (_isValidRelayUrl(url) &&
-                        !_isRelayAlreadySelected(url, selectedRelays.value)) {
-                      _addRelay(url, selectedRelays);
-                      customUrlController.clear();
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () {
-                  final url = customUrlController.text.trim();
-                  if (_isValidRelayUrl(url) &&
-                      !_isRelayAlreadySelected(url, selectedRelays.value)) {
-                    _addRelay(url, selectedRelays);
-                    customUrlController.clear();
-                  }
-                },
-                icon: const Icon(Icons.add),
-                tooltip: 'Add relay',
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Additional relays (only show if some popular relays are not selected)
-          if (popularRelays.any(
-            (url) => !_isRelayAlreadySelected(url, selectedRelays.value),
-          )) ...[
-            Text(
-              'Add More Popular Relays',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: popularRelays
-                  .where(
-                    (url) =>
-                        !_isRelayAlreadySelected(url, selectedRelays.value),
-                  )
-                  .map(
-                    (url) => ActionChip(
-                      label: Text(
-                        url.replaceFirst('wss://', ''),
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      onPressed: () => _addRelay(url, selectedRelays),
-                      avatar: const Icon(Icons.add, size: 14),
-                      visualDensity: VisualDensity.compact,
+                  const SizedBox(width: 8),
+                  Text(
+                    'Add Additional Relay',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  )
-                  .toList(),
-            ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Custom URL input
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: customUrlController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Custom Relay URL',
+                        hintText: 'wss://relay.example.com',
+                        prefixIcon: Icon(Icons.link),
+                        isDense: true,
+                      ),
+                      onFieldSubmitted: (url) {
+                        if (_isValidRelayUrl(url) &&
+                            !_isRelayAlreadySelected(
+                              url,
+                              selectedRelays.value,
+                            )) {
+                          _addRelay(url, selectedRelays);
+                          customUrlController.clear();
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      final url = customUrlController.text.trim();
+                      if (_isValidRelayUrl(url) &&
+                          !_isRelayAlreadySelected(url, selectedRelays.value)) {
+                        _addRelay(url, selectedRelays);
+                        customUrlController.clear();
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Add relay',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Additional relays (only show if some popular relays are not selected)
+              if (popularRelays.any(
+                (url) => !_isRelayAlreadySelected(url, selectedRelays.value),
+              )) ...[
+                Text(
+                  'Add More Popular Relays',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: popularRelays
+                      .where(
+                        (url) =>
+                            !_isRelayAlreadySelected(url, selectedRelays.value),
+                      )
+                      .map(
+                        (url) => ActionChip(
+                          label: Text(
+                            url.replaceFirst('wss://', ''),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          onPressed: () => _addRelay(url, selectedRelays),
+                          avatar: const Icon(Icons.add, size: 14),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildConfigurationOptions(
@@ -487,10 +493,13 @@ class MultiRelaySettingsSection extends HookConsumerWidget {
           Expanded(
             child: AsyncButtonBuilder(
               child: const Text('Save Config'),
-              onPressed: () => _saveConfiguration(context, selectedRelays, isEnabled),
+              onPressed: () =>
+                  _saveConfiguration(context, selectedRelays, isEnabled),
               builder: (context, child, callback, buttonState) {
                 return FilledButton.icon(
-                  onPressed: (!isEnabled || selectedRelays.length < 2) ? null : callback,
+                  onPressed: (!isEnabled || selectedRelays.length < 2)
+                      ? null
+                      : callback,
                   icon: buttonState.maybeWhen(
                     loading: () => const SizedBox(
                       width: 16,
@@ -593,13 +602,6 @@ class MultiRelaySettingsSection extends HookConsumerWidget {
     List<BackupRelayConfig> selectedRelays,
   ) {
     return selectedRelays.any((relay) => relay.relayConfig.url == url);
-  }
-
-  String _getRedundancyDescription(int count) {
-    if (count < 2) return 'No redundancy - consider adding more relays';
-    if (count == 2) return 'Basic redundancy';
-    if (count <= 3) return 'Good redundancy';
-    return 'Excellent redundancy';
   }
 
   Future<void> _testRelayConnections(

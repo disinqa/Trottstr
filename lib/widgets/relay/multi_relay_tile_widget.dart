@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:trottstr/models/multi_relay_connection_models.dart';
 import 'package:trottstr/models/relay_models.dart';
 import 'package:trottstr/providers/multi_relay_providers.dart';
-import 'package:intl/intl.dart';
 
 /// Enhanced relay tile with multi-selection support and priority indicators
 class MultiRelayTileWidget extends ConsumerWidget {

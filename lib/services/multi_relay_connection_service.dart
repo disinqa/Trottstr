@@ -64,8 +64,12 @@ class MultiRelayConnectionService {
 
   /// Dispose resources
   void dispose() {
-    _connectionTimers.values.forEach((timer) => timer.cancel());
-    _healthMonitors.values.forEach((subscription) => subscription.cancel());
+    for (var timer in _connectionTimers.values) {
+      timer.cancel();
+    }
+    for (var subscription in _healthMonitors.values) {
+      subscription.cancel();
+    }
     _priorityRotationTimer?.cancel();
     _failoverTimer?.cancel();
     _connectionsController.close();

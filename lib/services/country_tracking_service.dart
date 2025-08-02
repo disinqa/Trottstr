@@ -6,8 +6,8 @@ import 'package:trottstr/models/country_stay.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
 import 'package:trottstr/models/custom_country_settings.dart';
 import 'package:trottstr/services/encryption_service.dart';
-import 'package:trottstr/services/custom_country_settings_service.dart';
 import 'package:trottstr/services/notification_monitoring_service.dart';
+import 'package:trottstr/providers/country_tax_limits_provider.dart';
 
 /// Service for tracking country stays and calculating tax residency risks
 class CountryTrackingService {
@@ -54,30 +54,54 @@ class CountryTrackingService {
 
       if (encryptedContent.isEmpty) return [];
 
-      // Decrypt the content before parsing
+      // Decrypt the content before parsing with enhanced error handling
       final encryptionService = _ref.read(encryptionServiceProvider);
-      final decryptedData = await encryptionService.safeDecryptData(
-        encryptedContent,
-      );
 
-      // Handle different return types from safeDecryptData
-      String jsonString;
-      jsonString = decryptedData;
-    
-      if (jsonString.isEmpty) return [];
-
-      // Validate that we have proper JSON, not encrypted data
       try {
-        if (jsonString.startsWith('[') || jsonString.startsWith('{')) {
-          final List<dynamic> jsonList = json.decode(jsonString);
-          return jsonList.map((json) => CountryEntry.fromJson(json)).toList();
-        } else {
-          // If it doesn't look like JSON, it might be encrypted data that failed to decrypt
-          debugPrint('Received non-JSON data, possibly failed decryption');
+        final decryptedData = await encryptionService.safeDecryptData(
+          encryptedContent,
+        );
+
+        if (decryptedData.isEmpty) {
+          debugPrint('No decrypted data available');
           return [];
         }
+
+        // Parse and validate JSON data - handle both List and Map formats for backward compatibility
+        final dynamic parsedData = json.decode(decryptedData);
+
+        if (parsedData is List<dynamic>) {
+          // Expected format: List of country entries
+          final entries = parsedData
+              .map((json) => CountryEntry.fromJson(json))
+              .toList();
+          debugPrint('Successfully loaded ${entries.length} country entries');
+          return entries;
+        } else if (parsedData is Map<String, dynamic>) {
+          // Legacy format: Could be a single object - convert to list
+          debugPrint(
+            'Found legacy Map format for country entries, attempting conversion',
+          );
+          try {
+            final entry = CountryEntry.fromJson(parsedData);
+            debugPrint('Successfully converted legacy country entry');
+            return [entry];
+          } catch (e) {
+            debugPrint('Failed to convert legacy country entry: $e');
+            return [];
+          }
+        } else {
+          debugPrint('Unknown country entries data format, returning empty list');
+          return [];
+        }
+      } on EncryptionException catch (e) {
+        debugPrint('Encryption error loading country entries: ${e.message}');
+        debugPrint('Original encrypted data preserved for potential recovery');
+        // Return empty list but don't lose the encrypted data
+        // TODO: Could implement recovery UI here
+        return [];
       } catch (e) {
-        debugPrint('Error parsing country entries JSON: $e');
+        debugPrint('Error loading country entries: $e');
         return [];
       }
     } catch (e) {
@@ -116,10 +140,12 @@ class CountryTrackingService {
     // Sort entries by date to maintain chronological order
     entries.sort((a, b) => a.entryDate.compareTo(b.entryDate));
     await _saveEntries(entries);
-    
+
     // Trigger notification monitoring check
     try {
-      final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+      final monitoringService = _ref.read(
+        notificationMonitoringServiceProvider,
+      );
       await monitoringService.onCountryEntry(entry.countryCode);
     } catch (e) {
       debugPrint('Error triggering notification monitoring: $e');
@@ -143,7 +169,6 @@ class CountryTrackingService {
         )
         .toList();
   }
-
 
   /// Get complete travel history with all details
   Future<List<CountryEntryWithExit>> getCompleteHistory() async {
@@ -183,10 +208,12 @@ class CountryTrackingService {
       if (entryIndex != -1) {
         entries[entryIndex] = updatedEntry;
       }
-      
+
       // Trigger notification monitoring for country exit
       try {
-        final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+        final monitoringService = _ref.read(
+          notificationMonitoringServiceProvider,
+        );
         await monitoringService.onCountryExit(currentEntry.countryCode);
       } catch (e) {
         debugPrint('Error triggering notification monitoring: $e');
@@ -209,10 +236,12 @@ class CountryTrackingService {
     entries.sort((a, b) => a.entryDate.compareTo(b.entryDate));
 
     await _saveEntries(entries);
-    
+
     // Trigger notification monitoring check for new entry
     try {
-      final monitoringService = _ref.read(notificationMonitoringServiceProvider);
+      final monitoringService = _ref.read(
+        notificationMonitoringServiceProvider,
+      );
       await monitoringService.onCountryEntry(upperCountryCode);
     } catch (e) {
       debugPrint('Error triggering notification monitoring: $e');
@@ -243,23 +272,54 @@ class CountryTrackingService {
 
       if (encryptedContent.isEmpty) return [];
 
-      // Decrypt the content before parsing
+      // Decrypt the content before parsing with enhanced error handling
       final encryptionService = _ref.read(encryptionServiceProvider);
-      final decryptedData = await encryptionService.safeDecryptData(
-        encryptedContent,
-      );
-
-      // Handle different return types from safeDecryptData
-      String jsonString;
-      jsonString = decryptedData;
-    
-      if (jsonString.isEmpty) return [];
 
       try {
-        final List<dynamic> jsonList = json.decode(jsonString);
-        return jsonList.map((json) => PlannedStay.fromJson(json)).toList();
+        final decryptedData = await encryptionService.safeDecryptData(
+          encryptedContent,
+        );
+
+        if (decryptedData.isEmpty) {
+          debugPrint('No decrypted planned stays data available');
+          return [];
+        }
+
+        // Parse and validate JSON data - handle both List and Map formats for backward compatibility
+        final dynamic parsedData = json.decode(decryptedData);
+
+        if (parsedData is List<dynamic>) {
+          // Expected format: List of planned stays
+          final plannedStays = parsedData
+              .map((json) => PlannedStay.fromJson(json))
+              .toList();
+          debugPrint(
+            'Successfully loaded ${plannedStays.length} planned stays',
+          );
+          return plannedStays;
+        } else if (parsedData is Map<String, dynamic>) {
+          // Legacy format: Could be a single object - convert to list
+          debugPrint(
+            'Found legacy Map format for planned stays, attempting conversion',
+          );
+          try {
+            final stay = PlannedStay.fromJson(parsedData);
+            debugPrint('Successfully converted legacy planned stay');
+            return [stay];
+          } catch (e) {
+            debugPrint('Failed to convert legacy planned stay: $e');
+            return [];
+          }
+        } else {
+          debugPrint('Unknown planned stays data format, returning empty list');
+          return [];
+        }
+      } on EncryptionException catch (e) {
+        debugPrint('Encryption error loading planned stays: ${e.message}');
+        debugPrint('Original encrypted data preserved for potential recovery');
+        return [];
       } catch (e) {
-        debugPrint('Error parsing planned stays JSON: $e');
+        debugPrint('Error loading planned stays: $e');
         return [];
       }
     } catch (e) {
@@ -384,8 +444,8 @@ class CountryTrackingService {
   /// Calculate tax residency risks for all countries
   Future<Map<String, TaxResidencyRisk>> calculateTaxResidencyRisks() async {
     final daysPerCountry = await calculateDaysPerCountry();
-    final customSettingsService = _ref.read(
-      customCountrySettingsServiceProvider,
+    final countryTaxLimitsNotifier = _ref.read(
+      countryTaxLimitsProvider.notifier,
     );
     final Map<String, TaxResidencyRisk> risks = <String, TaxResidencyRisk>{};
 
@@ -393,15 +453,25 @@ class CountryTrackingService {
       final countryCode = entry.key;
       final days = entry.value;
 
-      // Check for custom settings first
-      final customSettings = await customSettingsService
-          .getCustomSettingsForCountry(countryCode);
+      // Use the new tax limits system to get effective threshold
+      final threshold = countryTaxLimitsNotifier.getLimitForCountry(
+        countryCode,
+      );
       final rule = DefaultTaxResidencyRules.getRuleForCountry(countryCode);
+      final hasCustomLimit = countryTaxLimitsNotifier.hasCustomLimit(
+        countryCode,
+      );
 
-      final threshold =
-          customSettings?.customDaysThreshold ??
-          rule?.daysThreshold ??
-          DefaultTaxResidencyRules.defaultThreshold;
+      // Create custom settings object if there's a custom limit for backward compatibility
+      CustomCountrySettings? customSettings;
+      if (hasCustomLimit) {
+        customSettings = CustomCountrySettings(
+          countryCode: countryCode,
+          countryName: rule?.countryName ?? countryCode,
+          customDaysThreshold: threshold,
+          createdAt: DateTime.now(),
+        );
+      }
 
       final risk = TaxResidencyRisk(
         countryCode: countryCode,
@@ -476,28 +546,33 @@ class CountryTrackingService {
 
       if (encryptedContent.isEmpty) return null;
 
-      // Decrypt the content
+      // Decrypt the content with enhanced error handling
       final encryptionService = _ref.read(encryptionServiceProvider);
-      final decryptedData = await encryptionService.safeDecryptData(
-        encryptedContent,
-      );
 
-      // Handle different return types from safeDecryptData
-      String? decryptedLocation;
       try {
-        decryptedLocation = decryptedData;
-            } catch (e) {
-        debugPrint('Error processing decrypted current location data: $e');
+        final decryptedData = await encryptionService.safeDecryptData(
+          encryptedContent,
+        );
+
+        if (decryptedData.isEmpty) {
+          debugPrint('No decrypted current location data available');
+          return null;
+        }
+
+        debugPrint('Successfully loaded current location: $decryptedData');
+        return decryptedData;
+      } on EncryptionException catch (e) {
+        debugPrint('Encryption error loading current location: ${e.message}');
+        debugPrint('Original encrypted data preserved for potential recovery');
+        return null;
+      } catch (e) {
+        debugPrint('Error loading current location: $e');
         return null;
       }
-
-      return decryptedLocation.isNotEmpty == true ? decryptedLocation : null;
     } catch (e) {
       return null;
     }
   }
-
-
 }
 
 /// Represents tax residency risk for a country

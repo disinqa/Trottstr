@@ -325,13 +325,6 @@ class MultiRelayBackupScreen extends HookConsumerWidget {
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: statusColor),
                   ),
-                  const Spacer(),
-                  Text(
-                    _getRedundancyText(selectedCount),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: statusColor),
-                  ),
                 ],
               ),
             ],
@@ -473,7 +466,7 @@ class MultiRelayBackupScreen extends HookConsumerWidget {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -650,13 +643,6 @@ class MultiRelayBackupScreen extends HookConsumerWidget {
       case BackupRelayRole.archive:
         return 'Archive';
     }
-  }
-
-  String _getRedundancyText(int count) {
-    if (count < 2) return 'No redundancy';
-    if (count == 2) return 'Basic redundancy';
-    if (count <= 3) return 'Good redundancy';
-    return 'Excellent redundancy';
   }
 
   Future<void> _testRelayConnections(

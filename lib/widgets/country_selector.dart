@@ -4,8 +4,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:trottstr/models/tax_residency_rule.dart';
 import 'package:trottstr/providers/country_tracking_providers.dart';
+import 'package:trottstr/providers/country_tax_limits_provider.dart';
 import 'package:trottstr/services/favorite_countries_service.dart';
 import 'package:trottstr/utils/country_flags.dart';
+import 'package:trottstr/utils/country_tax_defaults.dart';
 import 'package:trottstr/widgets/edit_country_time_limit_dialog.dart';
 
 /// Base class for search suggestions
@@ -18,11 +20,15 @@ class CountryInfo extends SearchSuggestion {
   final String code;
   final String name;
   final String flag;
+  final int? effectiveTaxLimit;
+  final bool hasCustomLimit;
 
   const CountryInfo({
     required this.code,
     required this.name,
     required this.flag,
+    this.effectiveTaxLimit,
+    this.hasCustomLimit = false,
   });
 
   @override
@@ -62,18 +68,26 @@ class CountrySelector extends HookConsumerWidget {
     final controller = useTextEditingController();
     final favoriteCountriesAsync = ref.watch(favoriteCountriesProvider);
     final favoriteService = ref.read(favoriteCountriesServiceProvider);
+    final countryTaxLimits = ref.watch(countryTaxLimitsProvider);
 
-    // Create list of all countries with flags
+    // Create list of all countries with flags and tax limit information
     final countriesMap = DefaultTaxResidencyRules.getAllCountries();
-    final allCountries = countriesMap.entries
-        .map(
-          (entry) => CountryInfo(
-            code: entry.key,
-            name: entry.value,
-            flag: CountryFlags.getFlagOptimized(entry.key),
-          ),
-        )
-        .toList();
+    final allCountries = countriesMap.entries.map((entry) {
+      final countryCode = entry.key;
+      final countryName = entry.value;
+      final defaultLimit = CountryTaxDefaults.getDefaultLimit(countryCode);
+      final customLimit = countryTaxLimits[countryCode];
+      final effectiveLimit = customLimit ?? defaultLimit;
+      final hasCustomLimit = customLimit != null && customLimit != defaultLimit;
+
+      return CountryInfo(
+        code: countryCode,
+        name: countryName,
+        flag: CountryFlags.getFlagOptimized(countryCode),
+        effectiveTaxLimit: effectiveLimit,
+        hasCustomLimit: hasCustomLimit,
+      );
+    }).toList();
 
     // Set initial value if selectedCountryCode is provided
     useEffect(() {
@@ -113,11 +127,23 @@ class CountrySelector extends HookConsumerWidget {
                       .map(
                         (code) => allCountries.firstWhere(
                           (country) => country.code == code,
-                          orElse: () => CountryInfo(
-                            code: code,
-                            name: code,
-                            flag: CountryFlags.getFlagOptimized(code),
-                          ),
+                          orElse: () {
+                            final defaultLimit =
+                                CountryTaxDefaults.getDefaultLimit(code);
+                            final customLimit = countryTaxLimits[code];
+                            final effectiveLimit = customLimit ?? defaultLimit;
+                            final hasCustomLimit =
+                                customLimit != null &&
+                                customLimit != defaultLimit;
+
+                            return CountryInfo(
+                              code: code,
+                              name: code,
+                              flag: CountryFlags.getFlagOptimized(code),
+                              effectiveTaxLimit: effectiveLimit,
+                              hasCustomLimit: hasCustomLimit,
+                            );
+                          },
                         ),
                       )
                       .toList();
@@ -164,6 +190,7 @@ class CountrySelector extends HookConsumerWidget {
                     pattern,
                     allCountries,
                     favoriteCodes,
+                    countryTaxLimits,
                   );
                 },
                 itemBuilder: (context, suggestion) {
@@ -240,6 +267,7 @@ class CountrySelector extends HookConsumerWidget {
     String pattern,
     List<CountryInfo> allCountries,
     List<String> favoriteCodes,
+    Map<String, int> countryTaxLimits,
   ) {
     final suggestions = <SearchSuggestion>[];
     final query = pattern.toLowerCase().trim();
@@ -251,11 +279,21 @@ class CountrySelector extends HookConsumerWidget {
             .map(
               (code) => allCountries.firstWhere(
                 (country) => country.code == code,
-                orElse: () => CountryInfo(
-                  code: code,
-                  name: code,
-                  flag: CountryFlags.getFlagOptimized(code),
-                ),
+                orElse: () {
+                  final defaultLimit = CountryTaxDefaults.getDefaultLimit(code);
+                  final customLimit = countryTaxLimits[code];
+                  final effectiveLimit = customLimit ?? defaultLimit;
+                  final hasCustomLimit =
+                      customLimit != null && customLimit != defaultLimit;
+
+                  return CountryInfo(
+                    code: code,
+                    name: code,
+                    flag: CountryFlags.getFlagOptimized(code),
+                    effectiveTaxLimit: effectiveLimit,
+                    hasCustomLimit: hasCustomLimit,
+                  );
+                },
               ),
             )
             .toList();
@@ -289,11 +327,21 @@ class CountrySelector extends HookConsumerWidget {
           .map(
             (code) => allCountries.firstWhere(
               (country) => country.code == code,
-              orElse: () => CountryInfo(
-                code: code,
-                name: code,
-                flag: CountryFlags.getFlagOptimized(code),
-              ),
+              orElse: () {
+                final defaultLimit = CountryTaxDefaults.getDefaultLimit(code);
+                final customLimit = countryTaxLimits[code];
+                final effectiveLimit = customLimit ?? defaultLimit;
+                final hasCustomLimit =
+                    customLimit != null && customLimit != defaultLimit;
+
+                return CountryInfo(
+                  code: code,
+                  name: code,
+                  flag: CountryFlags.getFlagOptimized(code),
+                  effectiveTaxLimit: effectiveLimit,
+                  hasCustomLimit: hasCustomLimit,
+                );
+              },
             ),
           )
           .toList();
@@ -437,16 +485,67 @@ class CountrySelector extends HookConsumerWidget {
                                           context,
                                         ).textTheme.bodyLarge,
                                       ),
-                                      Text(
-                                        country.code,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
+                                      Row(
+                                        children: [
+                                          Text(
+                                            country.code,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                          if (country.effectiveTaxLimit !=
+                                              null) ...[
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '• ${country.effectiveTaxLimit} days',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                             ),
+                                            if (country.hasCustomLimit) ...[
+                                              const SizedBox(width: 4),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 1,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  'CUSTOM',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .labelSmall
+                                                      ?.copyWith(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onPrimary,
+                                                        fontSize: 9,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -671,8 +770,50 @@ class _FavoriteChipWidgetState extends State<_FavoriteChipWidget> {
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.country.name),
-          const SizedBox(width: 4),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.country.name),
+              if (widget.country.effectiveTaxLimit != null) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${widget.country.effectiveTaxLimit} days',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (widget.country.hasCustomLimit) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 3,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'CUSTOM',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: _isLoading ? null : _handleRemoveFavorite,
             child: AnimatedSwitcher(
@@ -722,12 +863,13 @@ class CountryInfoCard extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rule =
         this.rule ?? DefaultTaxResidencyRules.getRuleForCountry(countryCode);
-    final customSettingsAsync = ref.watch(
-      customSettingsForCountryProvider(countryCode),
-    );
-    final effectiveTimeLimitAsync = ref.watch(
-      effectiveTimeLimitProvider(countryCode),
-    );
+    final countryTaxLimits = ref.watch(countryTaxLimitsProvider);
+
+    // Calculate effective limit and custom status
+    final defaultLimit = CountryTaxDefaults.getDefaultLimit(countryCode);
+    final customLimit = countryTaxLimits[countryCode];
+    final effectiveLimit = customLimit ?? defaultLimit;
+    final hasCustomLimit = customLimit != null && customLimit != defaultLimit;
 
     if (rule == null) {
       return Card(
@@ -757,14 +899,75 @@ class CountryInfoCard extends HookConsumerWidget {
                         countryName: countryCode,
                       );
                     },
-                    icon: const Icon(Icons.edit),
+                    icon: Icon(
+                      hasCustomLimit ? Icons.edit : Icons.edit_outlined,
+                      color: hasCustomLimit
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
                     tooltip: 'Edit time limit',
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+
+              // Show effective limit
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$effectiveLimit days',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'tax residency threshold',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (hasCustomLimit) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'CUSTOM',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+
+              if (hasCustomLimit && effectiveLimit != defaultLimit) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Default: $defaultLimit days',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 8),
               Text(
-                'Tax residency information not available for this country. Default threshold of ${DefaultTaxResidencyRules.defaultThreshold} days will be used.',
+                'Tax residency information not available for this country. Default threshold of $defaultLimit days will be used.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -802,15 +1005,11 @@ class CountryInfoCard extends HookConsumerWidget {
                       countryName: rule.countryName,
                     );
                   },
-                  icon: customSettingsAsync.when(
-                    loading: () => const Icon(Icons.edit),
-                    error: (_, __) => const Icon(Icons.edit),
-                    data: (customSettings) => Icon(
-                      customSettings != null ? Icons.edit : Icons.edit_outlined,
-                      color: customSettings != null
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
+                  icon: Icon(
+                    hasCustomLimit ? Icons.edit : Icons.edit_outlined,
+                    color: hasCustomLimit
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
                   ),
                   tooltip: 'Edit time limit',
                 ),
@@ -818,158 +1017,63 @@ class CountryInfoCard extends HookConsumerWidget {
             ),
             const SizedBox(height: 12),
 
-            // Time limit row with custom/default indicator
-            effectiveTimeLimitAsync.when(
-              loading: () => Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Loading...'),
-                ],
-              ),
-              error: (_, __) => Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${rule.daysThreshold} days',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            // Time limit row with custom/default indicator - now synchronous and fast
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
                       color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$effectiveLimit days',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'tax residency threshold',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                if (hasCustomLimit) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'CUSTOM',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 8),
+                ],
+                if (hasCustomLimit && effectiveLimit != rule.daysThreshold) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    'tax residency threshold',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    'Default: ${rule.daysThreshold} days',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
-              ),
-              data: (effectiveLimit) {
-                return customSettingsAsync.when(
-                  loading: () => Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$effectiveLimit days',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'tax residency threshold',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  error: (_, __) => Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$effectiveLimit days',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'tax residency threshold',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  data: (customSettings) {
-                    final isCustom = customSettings != null;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '$effectiveLimit days',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'tax residency threshold',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            if (isCustom) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'CUSTOM',
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (isCustom &&
-                            effectiveLimit != rule.daysThreshold) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Default: ${rule.daysThreshold} days',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ],
-                    );
-                  },
-                );
-              },
+              ],
             ),
 
             const SizedBox(height: 8),
@@ -978,74 +1082,8 @@ class CountryInfoCard extends HookConsumerWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
 
-            // Show custom notes if available
-            customSettingsAsync.whenOrNull(
-                  data: (customSettings) {
-                    if (customSettings?.notes != null &&
-                        customSettings!.notes!.isNotEmpty) {
-                      return Column(
-                        children: [
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer
-                                  .withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.note,
-                                  size: 16,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Custom Notes:',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        customSettings.notes!,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onPrimaryContainer,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return null;
-                  },
-                ) ??
-                const SizedBox.shrink(),
+            // Note: Custom notes functionality can be added later if needed
+            const SizedBox.shrink(),
 
             if (rule.additionalNotes != null) ...[
               const SizedBox(height: 8),
